@@ -91,7 +91,6 @@ export class MdastToJsx {
     }) {
         this.str = code
         this.mdast = mdast || mdxParser.parse(code)
-        console.log('mdast', JSON.stringify(this.mdast, null, 2))
         this.c = {
             ...Object.fromEntries(
                 nativeTags.map((tag) => {
@@ -343,7 +342,6 @@ export class MdastToJsx {
                 return []
             }
             case 'linkReference': {
-                console.log('linkReference', node)
                 let href = ''
                 mdastBfs(this.mdast, (child: any) => {
                     if (
