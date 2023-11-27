@@ -1,3 +1,4 @@
+import React, { cloneElement } from 'react'
 import { htmlToJsx } from 'html-to-jsx-transform'
 import { Node, Parent } from 'mdast'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -17,6 +18,8 @@ const mdxParser = remark()
     .use(remarkGfm)
     .use(remarkMdx) as any
 
+void React
+
 export function SafeMdxRenderer({
     components,
     code = '',
@@ -32,7 +35,6 @@ const nativeTags = [
     'strong',
     'em',
     'del',
-    'br',
     'hr',
     'a',
     'b',
@@ -74,17 +76,22 @@ const nativeTags = [
     'pre',
 ] as const
 
-type ComponentsMap = { [k in (typeof nativeTags)[number]]: any }
+type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any }
 
-class MdastToJsx {
+export class MdastToJsx {
     mdast: MyRootContent
     str: string
     jsxStr: string = ''
     c: ComponentsMap
     errors: string[] = []
-    constructor({ code = '', mdast, components = {} as ComponentsMap }) {
+    constructor({
+        code = '',
+        mdast = undefined as any,
+        components = {} as ComponentsMap,
+    }) {
         this.str = code
         this.mdast = mdast || mdxParser.parse(code)
+        console.log('mdast', JSON.stringify(this.mdast, null, 2))
         this.c = {
             ...Object.fromEntries(
                 nativeTags.map((tag) => {
@@ -95,27 +102,31 @@ class MdastToJsx {
         }
     }
     mapMdastChildren(node: any) {
-        const res = node.children?.flatMap((child) =>
-            this.mdastTransformer(child),
-        )
+        const res = node.children
+            ?.flatMap((child) => this.mdastTransformer(child))
+            .filter(Boolean)
         if (Array.isArray(res)) {
             if (res.length === 1) {
                 return res[0]
             } else {
-                return res.map((x, i) => <Fragment key={i}>{x}</Fragment>)
+                return res.map((x, i) =>
+                    React.isValidElement(x) ? cloneElement(x, { key: i }) : x,
+                )
             }
         }
         return res || null
     }
     mapJsxChildren(node: any) {
-        const res = node.children?.flatMap((child, i) =>
-            this.jsxTransformer(child),
-        )
+        const res = node.children
+            ?.flatMap((child, i) => this.jsxTransformer(child))
+            .filter(Boolean)
         if (Array.isArray(res)) {
             if (res.length === 1) {
                 return res[0]
             } else {
-                return res.map((x, i) => <Fragment key={i}>{x}</Fragment>)
+                return res.map((x, i) =>
+                    React.isValidElement(x) ? cloneElement(x, { key: i }) : x,
+                )
             }
         }
         return res || null
@@ -135,7 +146,7 @@ class MdastToJsx {
                 const Component = accessWithDot(this.c, node.name)
 
                 if (!Component) {
-                    this.errors.push(`Unsupported jsx tag ${node.name}`)
+                    this.errors.push(`Unsupported jsx component ${node.name}`)
                     return null
                 }
 
@@ -331,6 +342,24 @@ class MdastToJsx {
             case 'definition': {
                 return []
             }
+            case 'linkReference': {
+                console.log('linkReference', node)
+                let href = ''
+                mdastBfs(this.mdast, (child: any) => {
+                    if (
+                        child.type === 'definition' &&
+                        child.identifier === node.identifier
+                    ) {
+                        href = child.url
+                    }
+                })
+
+                return (
+                    <this.c.a href={href}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.a>
+                )
+            }
             case 'footnoteReference': {
                 return []
             }
@@ -382,9 +411,13 @@ class MdastToJsx {
         let attrsList = node.attributes
             .map((attr) => {
                 if (attr.type === 'mdxJsxExpressionAttribute') {
-                    throw new Error(
-                        `mdxJsxExpressionAttribute is not supported: ${attr.value}`,
+                    this.errors.push(
+                        `Expressions in jsx props are not supported (${attr.value.replace(
+                            /\n+/g,
+                            ' ',
+                        )})`,
                     )
+                    return
                 }
                 if (attr.type !== 'mdxJsxAttribute') {
                     throw new Error(
@@ -412,16 +445,13 @@ class MdastToJsx {
                     if (v.value === 'undefined') {
                         return [attr.name, undefined]
                     }
-                    if (
-                        ['"', "'", '`'].some(
-                            (q) => v.value.startsWith(q) && v.value.endsWith(q),
-                        )
-                    ) {
+                    let quote = ['"', "'", '`'].find(
+                        (q) => v.value.startsWith(q) && v.value.endsWith(q),
+                    )
+                    if (quote) {
                         let value = v.value
-                        if (!v.value.startsWith('"')) {
-                            value = v.value
-                                .replace(/'/g, '"')
-                                .replace(/`/g, '"')
+                        if (quote !== '"') {
+                            value = v.value.replace(new RegExp(quote, 'g'), '"')
                         }
                         return [attr.name, JSON.parse(value)]
                     }

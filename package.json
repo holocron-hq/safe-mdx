@@ -34,6 +34,7 @@
         "@types/mdast": "^4.0.3",
         "@types/node": "^20.10.0",
         "@types/react": "18.2.15",
+        "dedent": "^1.2.0",
         "mdast-util-mdx-jsx": "^3.0.0",
         "react": "^18.2.0"
     }
