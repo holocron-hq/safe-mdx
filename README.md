@@ -48,6 +48,16 @@ export function Page() {
                 Heading({ children }) {
                     return <h1>{children}</h1>
                 },
+                p({ children }) {
+                    return <p style={{ color: 'black' }}>{children}</p>
+                },
+                blockquote({ children }) {
+                    return (
+                        <blockquote style={{ color: 'black' }}>
+                            {children}
+                        </blockquote>
+                    )
+                },
             }}
         />
     )
