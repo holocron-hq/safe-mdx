@@ -10,13 +10,13 @@
 
 ## Features
 
--   Render MDX without `eval`, so it's safe to use in Cloudflare Workers and Vercel Edge
+-   Render MDX without `eval`, so you can render MDX in Cloudflare Workers and Vercel Edge
 -   Works with React Server Components
 -   Supports custom MDX components
 
 ## Why
 
-The default MDX renderer uses `eval` to render MDX components. This is a security risk and it's not allowed in some environments like Cloudflare Workers.
+The default MDX renderer uses `eval` (or `new Function(code)`) to render MDX components. This is a security risk if the MdX code comes from untrusted sources and it's not allowed in some environments like Cloudflare Workers.
 
 Some use cases for this package are:
 
