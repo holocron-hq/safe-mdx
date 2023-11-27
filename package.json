@@ -1,6 +1,7 @@
 {
     "name": "safe-mdx",
     "version": "0.0.0",
+    "private": false,
     "description": "Render MDX in React without eval",
     "main": "dist/safe-mdx.js",
     "scripts": {
@@ -13,7 +14,7 @@
     ],
     "keywords": [],
     "author": "remorses <beats.by.morse@gmail.com>",
-    "license": "ISC",
+    "license": "MIT",
     "peerDependencies": {
         "react": "*"
     },
