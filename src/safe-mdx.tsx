@@ -462,7 +462,10 @@ function accessWithDot(obj, path: string) {
         .reduce((o, i) => o[i], obj)
 }
 
-function mdastBfs(node: Parent | Node, cb?: (node: Node | Parent) => any) {
+export function mdastBfs(
+    node: Parent | Node,
+    cb?: (node: Node | Parent) => any,
+) {
     const queue = [node]
     const result: any[] = []
     while (queue.length) {
