@@ -1,0 +1,34 @@
+{
+    "name": "safe-mdx",
+    "version": "0.0.0",
+    "description": "Render MDX in React without eval",
+    "main": "dist/safe-mdx.js",
+    "scripts": {
+        "build": "tsc"
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "keywords": [],
+    "author": "remorses <beats.by.morse@gmail.com>",
+    "license": "ISC",
+    "peerDependencies": {
+        "react": "*"
+    },
+    "dependencies": {
+        "html-to-jsx-transform": "^1.1.0",
+        "mdast": "^3.0.0",
+        "remark": "^15.0.1",
+        "remark-frontmatter": "^5.0.0",
+        "remark-gfm": "^4.0.0",
+        "remark-mdx": "^3.0.0"
+    },
+    "devDependencies": {
+        "@types/mdast": "^4.0.3",
+        "@types/node": "^20.10.0",
+        "@types/react": "18.2.15",
+        "mdast-util-mdx-jsx": "^3.0.0",
+        "react": "^18.2.0"
+    }
+}
