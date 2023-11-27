@@ -8,6 +8,12 @@
     <br/>
 </div>
 
+## Features
+
+-   Render MDX without `eval`, so it's safe to use in Cloudflare Workers and Vercel Edge
+-   Works with React Server Components
+-   Supports custom MDX components
+
 ## Why
 
 The default MDX renderer uses `eval` to render MDX components. This is a security risk and it's not allowed in some environments like Cloudflare Workers.
@@ -94,3 +100,12 @@ export function Page() {
     return <MdxRenderer code={code} mdast={mdast} />
 }
 ```
+
+## Limitations
+
+These features are not supported yet:
+
+-   expressions with dynamic values or values defined with `export`
+-   importing components or data from other files
+
+To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer`. This will also make your MDX files cleaner and easier to read.
