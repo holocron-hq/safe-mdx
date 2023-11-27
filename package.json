@@ -4,7 +4,8 @@
     "description": "Render MDX in React without eval",
     "main": "dist/safe-mdx.js",
     "scripts": {
-        "build": "tsc"
+        "build": "tsc",
+        "prepublishOnly": "pnpm build"
     },
     "files": [
         "dist",
