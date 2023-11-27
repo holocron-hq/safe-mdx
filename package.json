@@ -4,6 +4,7 @@
     "private": false,
     "description": "Render MDX in React without eval",
     "main": "dist/safe-mdx.js",
+    "types": "dist/safe-mdx.d.ts",
     "scripts": {
         "build": "tsc",
         "prepublishOnly": "pnpm build"
@@ -12,7 +13,9 @@
         "dist",
         "src"
     ],
-    "keywords": [],
+    "keywords": [
+        "mdx"
+    ],
     "author": "remorses <beats.by.morse@gmail.com>",
     "license": "MIT",
     "peerDependencies": {
