@@ -85,7 +85,6 @@ class MdastToJsx {
     constructor({ code = '', mdast, components = {} as ComponentsMap }) {
         this.str = code
         this.mdast = mdast || mdxParser.parse(code)
-        // TODO add tags and their allowed import sources
         this.c = {
             ...Object.fromEntries(
                 nativeTags.map((tag) => {
@@ -173,8 +172,6 @@ class MdastToJsx {
                 const start = node.position?.start?.offset
                 const end = node.position?.end?.offset
                 let text = this.str.slice(start, end)
-                // console.log('esm', node)
-                const tree = node.data?.estree
 
                 return []
             }
@@ -342,8 +339,6 @@ class MdastToJsx {
                 return []
             }
             case 'html': {
-                // console.log('html', node)
-
                 const start = node.position?.start?.offset
                 const end = node.position?.end?.offset
                 const text = this.str.slice(start, end)
@@ -386,7 +381,6 @@ class MdastToJsx {
     getJsxAttrs(node: MdxJsxFlowElement | MdxJsxTextElement) {
         let attrsList = node.attributes
             .map((attr) => {
-                // TODO what is mdxJsxExpressionAttribute
                 if (attr.type === 'mdxJsxExpressionAttribute') {
                     throw new Error(
                         `mdxJsxExpressionAttribute is not supported: ${attr.value}`,
@@ -406,8 +400,6 @@ class MdastToJsx {
                     return [attr.name, true]
                 }
                 if (v?.type === 'mdxJsxAttributeValueExpression') {
-                    // logger.json({value})
-                    // if it's a number, just return it
                     if (v.value === 'true') {
                         return [attr.name, true]
                     }
@@ -421,12 +413,17 @@ class MdastToJsx {
                         return [attr.name, undefined]
                     }
                     if (
-                        // TODO add a way to parse ' and `
-                        ['"'].some(
+                        ['"', "'", '`'].some(
                             (q) => v.value.startsWith(q) && v.value.endsWith(q),
                         )
                     ) {
-                        return [attr.name, JSON.parse(v.value)]
+                        let value = v.value
+                        if (!v.value.startsWith('"')) {
+                            value = v.value
+                                .replace(/'/g, '"')
+                                .replace(/`/g, '"')
+                        }
+                        return [attr.name, JSON.parse(value)]
                     }
 
                     const number = Number(v.value)
@@ -437,8 +434,6 @@ class MdastToJsx {
                     this.errors.push(
                         `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
                     )
-
-                    // return [attr.name, `{${v.value}}`]
                 } else {
                     console.log('unhandled attr', { attr }, attr.type)
                 }
