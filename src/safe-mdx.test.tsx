@@ -27,16 +27,14 @@ test('basic', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <h1>
             Hello
           </h1>
           <p>
             i am a paragraph
           </p>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })
@@ -49,9 +47,7 @@ test('inline jsx', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <p>
             <Heading
               level={2}
@@ -59,7 +55,7 @@ test('inline jsx', () => {
               hello
             </Heading>
           </p>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })
@@ -74,9 +70,7 @@ test('block jsx', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <Heading
             level={2}
           >
@@ -86,7 +80,7 @@ test('block jsx', () => {
               </p>
             </blockquote>
           </Heading>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })
@@ -99,11 +93,11 @@ test('missing components are ignored', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [
-          "Unsupported jsx component MissingComponent",
+          {
+            "message": "Unsupported jsx component MissingComponent",
+          },
         ],
-        "result": <div
-          className=""
-        />,
+        "result": <React.Fragment />,
       }
     `)
 })
@@ -133,14 +127,20 @@ test('props parsing', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [
-          "Expressions in jsx props are not supported (expression1={1 + 3})",
-          "Expressions in jsx props are not supported (expression2={Boolean(1)})",
-          "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
-          "Expressions in jsx props are not supported (...{       spread: true     })",
+          {
+            "message": "Expressions in jsx props are not supported (expression1={1 + 3})",
+          },
+          {
+            "message": "Expressions in jsx props are not supported (expression2={Boolean(1)})",
+          },
+          {
+            "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
+          },
+          {
+            "message": "Expressions in jsx props are not supported (...{       spread: true     })",
+          },
         ],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <Heading
             backTick="some \${expr} value"
             boolean={false}
@@ -153,7 +153,7 @@ test('props parsing', () => {
               hi
             </p>
           </Heading>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })
@@ -167,9 +167,7 @@ test('breaks', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <p>
             To have a line break without a paragraph, you will need to use two trailing spaces.
             <br />
@@ -177,7 +175,7 @@ test('breaks', () => {
             <br />
             (This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)
           </p>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })
@@ -600,11 +598,11 @@ test('kitchen sink', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [
-          "Unsupported jsx component dl",
+          {
+            "message": "Unsupported jsx component dl",
+          },
         ],
-        "result": <div
-          className=""
-        >
+        "result": <React.Fragment>
           <h1>
             Markdown Kitchen Sink
           </h1>
@@ -1562,7 +1560,7 @@ test('kitchen sink', () => {
               [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
             </code>
           </pre>
-        </div>,
+        </React.Fragment>,
       }
     `)
 })

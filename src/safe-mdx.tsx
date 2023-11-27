@@ -83,7 +83,7 @@ export class MdastToJsx {
     str: string
     jsxStr: string = ''
     c: ComponentsMap
-    errors: string[] = []
+    errors: { message: string }[] = []
     constructor({
         code = '',
         mdast = undefined as any,
@@ -145,7 +145,9 @@ export class MdastToJsx {
                 const Component = accessWithDot(this.c, node.name)
 
                 if (!Component) {
-                    this.errors.push(`Unsupported jsx component ${node.name}`)
+                    this.errors.push({
+                        message: `Unsupported jsx component ${node.name}`,
+                    })
                     return null
                 }
 
@@ -314,11 +316,7 @@ export class MdastToJsx {
                 return <this.c.br />
             }
             case 'root': {
-                return (
-                    <this.c.div className=''>
-                        {this.mapMdastChildren(node)}
-                    </this.c.div>
-                )
+                return <Fragment>{this.mapMdastChildren(node)}</Fragment>
             }
             case 'table': {
                 const align = node.align
@@ -409,12 +407,12 @@ export class MdastToJsx {
         let attrsList = node.attributes
             .map((attr) => {
                 if (attr.type === 'mdxJsxExpressionAttribute') {
-                    this.errors.push(
-                        `Expressions in jsx props are not supported (${attr.value.replace(
+                    this.errors.push({
+                        message: `Expressions in jsx props are not supported (${attr.value.replace(
                             /\n+/g,
                             ' ',
                         )})`,
-                    )
+                    })
                     return
                 }
                 if (attr.type !== 'mdxJsxAttribute') {
@@ -459,9 +457,9 @@ export class MdastToJsx {
                         return [attr.name, number]
                     }
 
-                    this.errors.push(
-                        `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
-                    )
+                    this.errors.push({
+                        message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
+                    })
                 } else {
                     console.log('unhandled attr', { attr }, attr.type)
                 }

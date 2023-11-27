@@ -101,6 +101,25 @@ export function Page() {
 }
 ```
 
+## Handling errors
+
+`safe-mdx` ignores missing components or expressions, to show a message to the user in case of these errors you can use `MdastToJsx` directly
+
+```tsx
+import { MdastToJsx } from 'safe-mdx'
+
+export function Page() {
+    const visitor = new MdastToJsx({ code, mdast, components })
+    const jsx = visitor.run()
+
+    if (visitor.errors.length) {
+        // handle errors here, like showing a message to the user for missing components
+    }
+
+    return jsx
+}
+```
+
 ## Limitations
 
 These features are not supported yet:
