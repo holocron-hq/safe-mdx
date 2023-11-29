@@ -151,7 +151,9 @@ export class MdastToJsx {
                     return null
                 }
 
-                let attrsList = this.getJsxAttrs(node)
+                let attrsList = getJsxAttrs(node, (err) => {
+                    this.errors.push(err)
+                })
 
                 let attrs = Object.fromEntries(attrsList)
                 return (
@@ -403,72 +405,74 @@ export class MdastToJsx {
             }
         }
     }
-    getJsxAttrs(node: MdxJsxFlowElement | MdxJsxTextElement) {
-        let attrsList = node.attributes
-            .map((attr) => {
-                if (attr.type === 'mdxJsxExpressionAttribute') {
-                    this.errors.push({
-                        message: `Expressions in jsx props are not supported (${attr.value.replace(
-                            /\n+/g,
-                            ' ',
-                        )})`,
-                    })
-                    return
-                }
-                if (attr.type !== 'mdxJsxAttribute') {
-                    throw new Error(
-                        `non mdxJsxAttribute is not supported: ${attr}`,
-                    )
-                }
+}
 
-                const v = attr.value
-                if (typeof v === 'string' || typeof v === 'number') {
-                    return [attr.name, v]
-                }
-                if (v === null) {
+export function getJsxAttrs(
+    node: MdxJsxFlowElement | MdxJsxTextElement,
+    onError: (err: { message: string }) => void = console.error,
+) {
+    let attrsList = node.attributes
+        .map((attr) => {
+            if (attr.type === 'mdxJsxExpressionAttribute') {
+                onError({
+                    message: `Expressions in jsx props are not supported (${attr.value.replace(
+                        /\n+/g,
+                        ' ',
+                    )})`,
+                })
+                return
+            }
+            if (attr.type !== 'mdxJsxAttribute') {
+                throw new Error(`non mdxJsxAttribute is not supported: ${attr}`)
+            }
+
+            const v = attr.value
+            if (typeof v === 'string' || typeof v === 'number') {
+                return [attr.name, v]
+            }
+            if (v === null) {
+                return [attr.name, true]
+            }
+            if (v?.type === 'mdxJsxAttributeValueExpression') {
+                if (v.value === 'true') {
                     return [attr.name, true]
                 }
-                if (v?.type === 'mdxJsxAttributeValueExpression') {
-                    if (v.value === 'true') {
-                        return [attr.name, true]
+                if (v.value === 'false') {
+                    return [attr.name, false]
+                }
+                if (v.value === 'null') {
+                    return [attr.name, null]
+                }
+                if (v.value === 'undefined') {
+                    return [attr.name, undefined]
+                }
+                let quote = ['"', "'", '`'].find(
+                    (q) => v.value.startsWith(q) && v.value.endsWith(q),
+                )
+                if (quote) {
+                    let value = v.value
+                    if (quote !== '"') {
+                        value = v.value.replace(new RegExp(quote, 'g'), '"')
                     }
-                    if (v.value === 'false') {
-                        return [attr.name, false]
-                    }
-                    if (v.value === 'null') {
-                        return [attr.name, null]
-                    }
-                    if (v.value === 'undefined') {
-                        return [attr.name, undefined]
-                    }
-                    let quote = ['"', "'", '`'].find(
-                        (q) => v.value.startsWith(q) && v.value.endsWith(q),
-                    )
-                    if (quote) {
-                        let value = v.value
-                        if (quote !== '"') {
-                            value = v.value.replace(new RegExp(quote, 'g'), '"')
-                        }
-                        return [attr.name, JSON.parse(value)]
-                    }
-
-                    const number = Number(v.value)
-                    if (!isNaN(number)) {
-                        return [attr.name, number]
-                    }
-
-                    this.errors.push({
-                        message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
-                    })
-                } else {
-                    console.log('unhandled attr', { attr }, attr.type)
+                    return [attr.name, JSON.parse(value)]
                 }
 
-                return
-            })
-            .filter(isTruthy) as [string, any][]
-        return attrsList
-    }
+                const number = Number(v.value)
+                if (!isNaN(number)) {
+                    return [attr.name, number]
+                }
+
+                onError({
+                    message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
+                })
+            } else {
+                console.log('unhandled attr', { attr }, attr.type)
+            }
+
+            return
+        })
+        .filter(isTruthy) as [string, any][]
+    return attrsList
 }
 
 function isTruthy<T>(val: T | undefined | null | false): val is T {
