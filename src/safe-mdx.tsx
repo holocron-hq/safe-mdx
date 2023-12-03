@@ -248,9 +248,7 @@ export class MdastToJsx {
                 const code = node.value
                 return (
                     <this.c.pre>
-                        <this.c.code className={`language-${language}`}>
-                            {code}
-                        </this.c.code>
+                        <this.c.code>{code}</this.c.code>
                     </this.c.pre>
                 )
             }
