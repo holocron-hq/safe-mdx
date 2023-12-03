@@ -459,6 +459,10 @@ export function getJsxAttrs(
                 if (!isNaN(number)) {
                     return [attr.name, number]
                 }
+                const parsedJson = safeJsonParse(v.value)
+                if (parsedJson) {
+                    return [attr.name, parsedJson]
+                }
 
                 onError({
                     message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
@@ -504,4 +508,12 @@ export function mdastBfs(
         }
     }
     return result
+}
+
+function safeJsonParse(str: string) {
+    try {
+        return JSON.parse(str)
+    } catch (err) {
+        return null
+    }
 }

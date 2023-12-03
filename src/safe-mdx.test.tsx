@@ -116,6 +116,7 @@ test('props parsing', () => {
             jsx={<SomeComponent />}
             undef={undefined}
             null={null}
+            someJson={{"a": 1}}
             {...{
               spread: true
             }}
@@ -148,6 +149,11 @@ test('props parsing', () => {
             null={null}
             num={2}
             quote="a \\" string"
+            someJson={
+              {
+                "a": 1,
+              }
+            }
           >
             <p>
               hi
@@ -759,9 +765,7 @@ test('kitchen sink', () => {
             Headers
           </h2>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               # H1
       ## H2
       ### H3
@@ -812,9 +816,7 @@ test('kitchen sink', () => {
             Emphasis
           </h2>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               Emphasis, aka italics, with *asterisks* or _underscores_.
 
       Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -872,9 +874,7 @@ test('kitchen sink', () => {
             (In this example, leading and trailing spaces are shown with with dots: ⋅)
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               1. First ordered list item
       2. Another item
       ⋅⋅* Unordered sub-list. 
@@ -974,9 +974,7 @@ test('kitchen sink', () => {
             There are two ways to create links.
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               [I'm an inline-style link](https://www.google.com)
 
       [I'm an inline-style link with title](https://www.google.com "Google's Homepage")
@@ -1069,9 +1067,7 @@ test('kitchen sink', () => {
             Images
           </h2>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               Here's our logo (hover to see the title text):
 
       Inline-style: 
@@ -1124,9 +1120,7 @@ test('kitchen sink', () => {
             .
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               Inline \`code\` has \`back-ticks around\` it.
             </code>
           </pre>
@@ -1149,49 +1143,37 @@ test('kitchen sink', () => {
             , or are indented with four spaces. I recommend only using the fenced code blocks -- they're easier and only they support syntax highlighting.
           </p>
           <pre>
-            <code
-              className="language-javascript"
-            >
+            <code>
               var s = "JavaScript syntax highlighting";
       alert(s);
             </code>
           </pre>
           <pre>
-            <code
-              className="language-python"
-            >
+            <code>
               s = "Python syntax highlighting"
       print s
             </code>
           </pre>
           <pre>
-            <code
-              className="language-"
-            >
+            <code>
               No language indicated, so no syntax highlighting. 
       But let's throw in a &lt;b&gt;tag&lt;/b&gt;.
             </code>
           </pre>
           <pre>
-            <code
-              className="language-javascript"
-            >
+            <code>
               var s = "JavaScript syntax highlighting";
       alert(s);
             </code>
           </pre>
           <pre>
-            <code
-              className="language-python"
-            >
+            <code>
               s = "Python syntax highlighting"
       print s
             </code>
           </pre>
           <pre>
-            <code
-              className="language-"
-            >
+            <code>
               No language indicated, so no syntax highlighting in Markdown Here (varies on Github). 
       But let's throw in a &lt;b&gt;tag&lt;/b&gt;.
             </code>
@@ -1210,9 +1192,7 @@ test('kitchen sink', () => {
              supports them. They are an easy way of adding tables to your email -- a task that would otherwise require copy-pasting from another application.
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               Colons can be used to align columns.
 
       | Tables        | Are           | Cool  |
@@ -1387,9 +1367,7 @@ test('kitchen sink', () => {
             Blockquotes
           </h2>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               &gt; Blockquotes are very handy in email to emulate reply text.
       &gt; This line is part of the same quote.
 
@@ -1430,9 +1408,7 @@ test('kitchen sink', () => {
             You can also use raw HTML in your Markdown, and it'll mostly work pretty well.
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               &lt;dl&gt;
         &lt;dt&gt;Definition list&lt;/dt&gt;
         &lt;dd&gt;Is something people use sometimes.&lt;/dd&gt;
@@ -1449,9 +1425,7 @@ test('kitchen sink', () => {
             Horizontal Rule
           </h2>
           <pre>
-            <code
-              className="language-"
-            >
+            <code>
               Three or more...
 
       ---
@@ -1495,9 +1469,7 @@ test('kitchen sink', () => {
             Here are some things to try out:
           </p>
           <pre>
-            <code
-              className="language-"
-            >
+            <code>
               Here's a line for us to start with.
 
       This line is separated from the one above by two newlines, so it will be a *separate paragraph*.
@@ -1542,9 +1514,7 @@ test('kitchen sink', () => {
             They can't be added directly but you can add an image with a link to the video like this:
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               &lt;a href="http://www.youtube.com/watch?feature=player_embedded&v=YOUTUBE_VIDEO_ID_HERE
       " target="_blank"&gt;&lt;img src="http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg" 
       alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /&gt;&lt;/a&gt;
@@ -1554,9 +1524,7 @@ test('kitchen sink', () => {
             Or, in pure Markdown, but losing the image sizing and border:
           </p>
           <pre>
-            <code
-              className="language-no-highlight"
-            >
+            <code>
               [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
             </code>
           </pre>
