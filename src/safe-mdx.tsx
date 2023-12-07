@@ -319,9 +319,14 @@ export class MdastToJsx {
                 return <Fragment>{this.mapMdastChildren(node)}</Fragment>
             }
             case 'table': {
-                const align = node.align
+                const [head, ...body] = React.Children.toArray(
+                    this.mapMdastChildren(node),
+                )
                 return (
-                    <this.c.table>{this.mapMdastChildren(node)}</this.c.table>
+                    <this.c.table>
+                        {head && <this.c.thead>{head}</this.c.thead>}
+                        {!!body?.length && <this.c.tbody>{body}</this.c.tbody>}
+                    </this.c.table>
                 )
             }
             case 'tableRow': {

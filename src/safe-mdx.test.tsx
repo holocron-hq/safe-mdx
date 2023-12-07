@@ -38,6 +38,133 @@ test('basic', () => {
       }
     `)
 })
+test('table', () => {
+    expect(
+        render(dedent`
+        # Hello
+
+        | Tables        | Are           | Cool  |
+        | ------------- |:-------------:| -----:|
+        | col 3 is      | right-aligned | $1600 |
+        | col 2 is      | centered      |   $12 |
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "result": <React.Fragment>
+          <h1>
+            Hello
+          </h1>
+          <table>
+            <thead>
+              <tr
+                className=""
+              >
+                <td
+                  className=""
+                >
+                  Tables
+                </td>
+                <td
+                  className=""
+                >
+                  Are
+                </td>
+                <td
+                  className=""
+                >
+                  Cool
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                className=""
+              >
+                <td
+                  className=""
+                >
+                  col 3 is
+                </td>
+                <td
+                  className=""
+                >
+                  right-aligned
+                </td>
+                <td
+                  className=""
+                >
+                  $1600
+                </td>
+              </tr>
+              <tr
+                className=""
+              >
+                <td
+                  className=""
+                >
+                  col 2 is
+                </td>
+                <td
+                  className=""
+                >
+                  centered
+                </td>
+                <td
+                  className=""
+                >
+                  $12
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </React.Fragment>,
+      }
+    `)
+})
+test('table, only head', () => {
+    expect(
+        render(dedent`
+        # Hello
+
+        | Tables        | Are           | Cool  |
+        | ------------- |:-------------:| -----:|
+        
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "result": <React.Fragment>
+          <h1>
+            Hello
+          </h1>
+          <table>
+            <thead>
+              <tr
+                className=""
+              >
+                <td
+                  className=""
+                >
+                  Tables
+                </td>
+                <td
+                  className=""
+                >
+                  Are
+                </td>
+                <td
+                  className=""
+                >
+                  Cool
+                </td>
+              </tr>
+            </thead>
+          </table>
+        </React.Fragment>,
+      }
+    `)
+})
 
 test('inline jsx', () => {
     expect(
@@ -145,10 +272,10 @@ test('props parsing', () => {
           <Heading
             backTick="some \${expr} value"
             boolean={false}
-            doublequote="a \\" string"
+            doublequote="a " string"
             null={null}
             num={2}
-            quote="a \\" string"
+            quote="a " string"
             someJson={
               {
                 "a": 1,
@@ -1215,150 +1342,158 @@ test('kitchen sink', () => {
             Colons can be used to align columns.
           </p>
           <table>
-            <tr
-              className=""
-            >
-              <td
+            <thead>
+              <tr
                 className=""
               >
-                Tables
-              </td>
-              <td
+                <td
+                  className=""
+                >
+                  Tables
+                </td>
+                <td
+                  className=""
+                >
+                  Are
+                </td>
+                <td
+                  className=""
+                >
+                  Cool
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
                 className=""
               >
-                Are
-              </td>
-              <td
+                <td
+                  className=""
+                >
+                  col 3 is
+                </td>
+                <td
+                  className=""
+                >
+                  right-aligned
+                </td>
+                <td
+                  className=""
+                >
+                  $1600
+                </td>
+              </tr>
+              <tr
                 className=""
               >
-                Cool
-              </td>
-            </tr>
-            <tr
-              className=""
-            >
-              <td
+                <td
+                  className=""
+                >
+                  col 2 is
+                </td>
+                <td
+                  className=""
+                >
+                  centered
+                </td>
+                <td
+                  className=""
+                >
+                  $12
+                </td>
+              </tr>
+              <tr
                 className=""
               >
-                col 3 is
-              </td>
-              <td
-                className=""
-              >
-                right-aligned
-              </td>
-              <td
-                className=""
-              >
-                $1600
-              </td>
-            </tr>
-            <tr
-              className=""
-            >
-              <td
-                className=""
-              >
-                col 2 is
-              </td>
-              <td
-                className=""
-              >
-                centered
-              </td>
-              <td
-                className=""
-              >
-                $12
-              </td>
-            </tr>
-            <tr
-              className=""
-            >
-              <td
-                className=""
-              >
-                zebra stripes
-              </td>
-              <td
-                className=""
-              >
-                are neat
-              </td>
-              <td
-                className=""
-              >
-                $1
-              </td>
-            </tr>
+                <td
+                  className=""
+                >
+                  zebra stripes
+                </td>
+                <td
+                  className=""
+                >
+                  are neat
+                </td>
+                <td
+                  className=""
+                >
+                  $1
+                </td>
+              </tr>
+            </tbody>
           </table>
           <p>
             There must be at least 3 dashes separating each header cell. The outer pipes (|) are optional, and you don't need to make the raw Markdown line up prettily. You can also use inline Markdown.
           </p>
           <table>
-            <tr
-              className=""
-            >
-              <td
+            <thead>
+              <tr
                 className=""
               >
-                Markdown
-              </td>
-              <td
+                <td
+                  className=""
+                >
+                  Markdown
+                </td>
+                <td
+                  className=""
+                >
+                  Less
+                </td>
+                <td
+                  className=""
+                >
+                  Pretty
+                </td>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
                 className=""
               >
-                Less
-              </td>
-              <td
+                <td
+                  className=""
+                >
+                  <em>
+                    Still
+                  </em>
+                </td>
+                <td
+                  className=""
+                >
+                  <code>
+                    renders
+                  </code>
+                </td>
+                <td
+                  className=""
+                >
+                  <strong>
+                    nicely
+                  </strong>
+                </td>
+              </tr>
+              <tr
                 className=""
               >
-                Pretty
-              </td>
-            </tr>
-            <tr
-              className=""
-            >
-              <td
-                className=""
-              >
-                <em>
-                  Still
-                </em>
-              </td>
-              <td
-                className=""
-              >
-                <code>
-                  renders
-                </code>
-              </td>
-              <td
-                className=""
-              >
-                <strong>
-                  nicely
-                </strong>
-              </td>
-            </tr>
-            <tr
-              className=""
-            >
-              <td
-                className=""
-              >
-                1
-              </td>
-              <td
-                className=""
-              >
-                2
-              </td>
-              <td
-                className=""
-              >
-                3
-              </td>
-            </tr>
+                <td
+                  className=""
+                >
+                  1
+                </td>
+                <td
+                  className=""
+                >
+                  2
+                </td>
+                <td
+                  className=""
+                >
+                  3
+                </td>
+              </tr>
+            </tbody>
           </table>
           <a
             name="blockquotes"
