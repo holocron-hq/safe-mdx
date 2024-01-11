@@ -12,6 +12,7 @@
             "default": "./dist/safe-mdx.js"
         },
         "./src/*": "./src/*.ts",
+        "./src": "./src/index.ts",
         "./package.json": "./package.json"
     },
     "scripts": {
