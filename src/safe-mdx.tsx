@@ -105,7 +105,9 @@ export class MdastToJsx {
             ?.flatMap((child) => this.mdastTransformer(child))
             .filter(Boolean)
         if (Array.isArray(res)) {
-            if (res.length === 1) {
+            if (!res.length) {
+                return null
+            } else if (res.length === 1) {
                 return res[0]
             } else {
                 return res.map((x, i) =>
@@ -120,7 +122,9 @@ export class MdastToJsx {
             ?.flatMap((child, i) => this.jsxTransformer(child))
             .filter(Boolean)
         if (Array.isArray(res)) {
-            if (res.length === 1) {
+            if (!res.length) {
+                return null
+            } else if (res.length === 1) {
                 return res[0]
             } else {
                 return res.map((x, i) =>

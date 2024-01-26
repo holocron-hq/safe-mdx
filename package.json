@@ -1,6 +1,6 @@
 {
     "name": "safe-mdx",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "private": false,
     "description": "Render MDX in React without eval",
     "repository": "https://github.com/holocron-hq/safe-mdx",
@@ -44,8 +44,10 @@
         "@types/mdast": "^4.0.3",
         "@types/node": "^20.10.0",
         "@types/react": "18.2.15",
+        "@types/react-dom": "^18.2.18",
         "dedent": "^1.2.0",
         "mdast-util-mdx-jsx": "^3.0.0",
-        "react": "^18.2.0"
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0"
     }
 }
