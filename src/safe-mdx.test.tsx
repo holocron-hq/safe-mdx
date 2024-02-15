@@ -1,7 +1,7 @@
 import React from 'react'
 import dedent from 'dedent'
 import { test, expect } from 'vitest'
-import { MdastToJsx } from './safe-mdx'
+import { MdastToJsx } from './safe-mdx.js'
 import { renderToStaticMarkup } from 'react-dom/server'
 void React
 
