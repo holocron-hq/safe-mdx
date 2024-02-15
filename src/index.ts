@@ -1,1 +1,1 @@
-export * from './safe-mdx'
+export * from './safe-mdx.js'

@@ -17,7 +17,7 @@
     },
     "scripts": {
         "build": "tsc",
-        "test": "vitest",
+        "test": "vitest run --coverage",
         "prepublishOnly": "pnpm build"
     },
     "files": [
@@ -33,21 +33,23 @@
         "react": "*"
     },
     "dependencies": {
-        "html-to-jsx-transform": "^1.1.0",
-        "mdast": "^3.0.0",
-        "remark": "^15.0.1",
+        "html-to-jsx-transform": "^1.0.0",
+        "remark": "^15.0.0",
         "remark-frontmatter": "^5.0.0",
         "remark-gfm": "^4.0.0",
         "remark-mdx": "^3.0.0"
     },
     "devDependencies": {
-        "@types/mdast": "^4.0.3",
-        "@types/node": "^20.11.13",
-        "@types/react": "18.2.48",
-        "@types/react-dom": "^18.2.18",
-        "dedent": "^1.2.0",
+        "@types/mdast": "^4.0.0",
+        "@types/node": "^20.0.0",
+        "@types/react": "^18.0.0",
+        "@types/react-dom": "^18.0.0",
+        "@vitest/coverage-v8": "^1.0.0",
+        "dedent": "^1.0.0",
         "mdast-util-mdx-jsx": "^3.0.0",
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0"
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0",
+        "typescript": "^5.0.0",
+        "vitest": "^1.0.0"
     }
 }
