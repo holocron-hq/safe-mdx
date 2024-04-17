@@ -122,6 +122,14 @@ export function Page() {
 }
 ```
 
+## Security
+
+safe-mdx is designed to avoid server-side evaluation of untrusted MDX input.
+
+However, it's important to note that safe-mdx does not provide protection against client-side vulnerabilities, such as Cross-Site Scripting (XSS) or script injection attacks. While safe-mdx itself does not perform any evaluation or rendering of user-provided content, the rendering library or components used in conjunction with safe-mdx may introduce security risks if not properly configured or sanitized.
+
+To enhance the security of your application when using safe-mdx, we recommend applying additional sanitization measures, such as the rehype-sanitize plugin. rehype-sanitize allows you to define a whitelist of allowed HTML elements, attributes, and protocols, effectively reducing the risk of XSS attacks by removing potentially malicious content from the rendered output.
+
 ## Limitations
 
 These features are not supported yet:
