@@ -67,6 +67,7 @@ const nativeTags = [
     'table',
     'tbody',
     'td',
+    'tfoot',
     'th',
     'thead',
     'tr',
