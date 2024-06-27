@@ -49,7 +49,7 @@ This is a paragraph
 
 export function Page() {
     return (
-        <MdxRenderer
+        <SafeMdxRenderer
             code={code}
             components={{
                 // You can pass your own components here
@@ -99,7 +99,43 @@ const parser = remark().use(remarkMdx)
 const mdast = parser.parse(code)
 
 export function Page() {
-    return <MdxRenderer code={code} mdast={mdast} />
+    return <SafeMdxRenderer code={code} mdast={mdast} />
+}
+```
+
+## Reading the frontmatter
+
+safe-mdx renderer ignores the frontmatter, to get its values you wil have to parse the MDX to mdast and read it there.
+
+```tsx
+import { SafeMdxRenderer } from 'safe-mdx'
+import { remark } from 'remark'
+import remarkFrontmatter from 'remark-frontmatter'
+import { Yaml } from 'mdast'
+import yaml from 'js-yaml'
+import remarkMdx from 'remark-mdx'
+
+const code = `
+---
+hello: 5
+---
+
+# Hello world
+`
+
+export function Page() {
+    const parser = remark().use(remarkFrontmatter, ['yaml']).use(remarkMdx)
+
+    const mdast = parser.parse(code)
+
+    const yamlFrontmatter = mdast.children.find(
+        (node) => node.type === 'yaml',
+    ) as Yaml
+
+    const parsedFrontmatter = yaml.load(yamlFrontmatter.value || '')
+
+    console.log(parsedFrontmatter)
+    return <SafeMdxRenderer code={code} mdast={mdast} />
 }
 ```
 

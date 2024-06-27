@@ -3,7 +3,7 @@ import { htmlToJsx } from 'html-to-jsx-transform'
 import { Node, Parent } from 'mdast'
 import remarkFrontmatter from 'remark-frontmatter'
 
-import { Root, RootContent } from 'mdast'
+import { Root, Yaml } from 'mdast'
 import { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 import { remark } from 'remark'
 import remarkGfm from 'remark-gfm'
@@ -92,6 +92,7 @@ export class MdastToJsx {
     }) {
         this.str = code
         this.mdast = mdast || mdxParser.parse(code)
+        
         this.c = {
             ...Object.fromEntries(
                 nativeTags.map((tag) => {

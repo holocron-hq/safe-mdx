@@ -41,6 +41,32 @@ test('basic', () => {
       }
     `)
 })
+test('frontmatter', () => {
+    expect(
+        render(dedent`
+        ---
+        hello: 5
+        ---
+        
+        # Hello
+
+        i am a paragraph
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Hello</h1><p>i am a paragraph</p>",
+        "result": <React.Fragment>
+          <h1>
+            Hello
+          </h1>
+          <p>
+            i am a paragraph
+          </p>
+        </React.Fragment>,
+      }
+    `)
+})
 test('table', () => {
     expect(
         render(dedent`
