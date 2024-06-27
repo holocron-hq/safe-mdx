@@ -1,6 +1,6 @@
 import React, { cloneElement } from 'react'
 import { htmlToJsx } from 'html-to-jsx-transform'
-import { Node, Parent } from 'mdast'
+import { Node, Parent, RootContent } from 'mdast'
 import remarkFrontmatter from 'remark-frontmatter'
 
 import { Root, Yaml } from 'mdast'
