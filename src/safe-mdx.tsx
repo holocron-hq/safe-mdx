@@ -230,7 +230,7 @@ export class MdastToJsx {
             case 'heading': {
                 const level = node.depth
 
-                const Tag: any = `h${level}`
+                const Tag = this.c[`h${level}`] ?? `h${level}`
                 return <Tag>{this.mapMdastChildren(node)}</Tag>
             }
             case 'paragraph': {
