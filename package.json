@@ -41,7 +41,7 @@
     "devDependencies": {
         "@types/mdast": "^4.0.0",
         "@types/node": "^20.0.0",
-        "@types/react": "^18.0.0",
+        "@types/react": "^18.3.11",
         "@types/react-dom": "^18.0.0",
         "@vitest/coverage-v8": "^1.0.0",
         "dedent": "^1.5.1",
