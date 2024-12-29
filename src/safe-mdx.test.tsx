@@ -648,7 +648,7 @@ test('props parsing', () => {
             "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
           },
           {
-            "message": "Expressions in jsx props are not supported (...{       spread: true     })",
+            "message": "Expressions in jsx props are not supported (...{     spread: true   })",
           },
         ],
         "html": "<h1><p>hi</p></h1>",
@@ -4006,4 +4006,79 @@ test('kitchen sink', () => {
         },
       }
     `)
+})
+
+
+test('code block rendering', () => {
+  const code = dedent`
+`
+  expect(render(dedent`
+      \`\`\`typescript
+      const x = 1;
+      \`\`\`
+
+      \`\`\`invalid-language
+      const y = 2;
+      \`\`\`
+    `)).toMatchInlineSnapshot(`
+      {
+   "errors": [
+     {
+       "message": "Unsupported language invalid-language",
+     },
+   ],
+   "html": "<pre><code class="language-typescript">const x = 1;</code></pre><pre><code>const y = 2;</code></pre>",
+   "result": {
+     "$$typeof": Symbol(react.transitional.element),
+     "_owner": null,
+     "_store": {},
+     "key": null,
+     "props": {
+       "children": [
+         {
+           "$$typeof": Symbol(react.transitional.element),
+           "_owner": null,
+           "_store": {},
+           "key": "0",
+           "props": {
+             "children": {
+               "$$typeof": Symbol(react.transitional.element),
+               "_owner": null,
+               "_store": {},
+               "key": null,
+               "props": {
+                 "children": "const x = 1;",
+                 "className": "language-typescript",
+               },
+               "type": "code",
+             },
+           },
+           "type": "pre",
+         },
+         {
+           "$$typeof": Symbol(react.transitional.element),
+           "_owner": null,
+           "_store": {},
+           "key": "1",
+           "props": {
+             "children": {
+               "$$typeof": Symbol(react.transitional.element),
+               "_owner": null,
+               "_store": {},
+               "key": null,
+               "props": {
+                 "children": "const y = 2;",
+                 "className": undefined,
+               },
+               "type": "code",
+             },
+           },
+           "type": "pre",
+         },
+       ],
+     },
+     "type": Symbol(react.fragment),
+   },
+ } 
+  `)
 })
