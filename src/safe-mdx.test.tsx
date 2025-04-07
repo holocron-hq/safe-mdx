@@ -648,7 +648,7 @@ test('props parsing', () => {
             "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
           },
           {
-            "message": "Expressions in jsx props are not supported (...{     spread: true   })",
+            "message": "Expressions in jsx props are not supported (...{       spread: true     })",
           },
         ],
         "html": "<h1><p>hi</p></h1>",
@@ -1166,7 +1166,37 @@ test('kitchen sink', () => {
       {
         "errors": [
           {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
             "message": "Unsupported jsx component dl",
+          },
+          {
+            "message": "Unsupported language no-highlight",
+          },
+          {
+            "message": "Unsupported language no-highlight",
           },
         ],
         "html": "<link rel="preload" as="image" href="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png"/><h1>Markdown Kitchen Sink</h1><p>This file is <a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet" title="">https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet</a> plus a few fixes and additions. Used by <a href="https://github.com/obedm503/bootmark" title="">obedm503/bootmark</a> to <a href="https://obedm503.github.io/bootmark/docs/markdown-cheatsheet.html" title="">demonstrate</a> it&#x27;s styling features.</p><p>This is intended as a quick reference and showcase. For more complete info, see <a href="http://daringfireball.net/projects/markdown/" title="">John Gruber&#x27;s original spec</a> and the <a href="http://github.github.com/github-flavored-markdown/" title="">Github-flavored Markdown info page</a>.</p><p>Note that there is also a <a href="./Markdown-Here-Cheatsheet" title="">Cheatsheet specific to Markdown Here</a> if that&#x27;s what you&#x27;re looking for. You can also check out <a href="./Other-Markdown-Tools" title="">more Markdown tools</a>.</p><h5>Table of Contents</h5><p><a href="#headers" title="">Headers</a><br/><a href="#emphasis" title="">Emphasis</a><br/><a href="#lists" title="">Lists</a><br/><a href="#links" title="">Links</a><br/><a href="#images" title="">Images</a><br/><a href="#code" title="">Code and Syntax Highlighting</a><br/><a href="#tables" title="">Tables</a><br/><a href="#blockquotes" title="">Blockquotes</a><br/><a href="#html" title="">Inline HTML</a><br/><a href="#hr" title="">Horizontal Rule</a><br/><a href="#lines" title="">Line Breaks</a><br/><a href="#videos" title="">YouTube Videos</a></p><a name="headers"></a><h2>Headers</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><a name="emphasis"></a><h2>Emphasis</h2><pre><code>Emphasis, aka italics, with *asterisks* or _underscores_.
@@ -1222,11 +1252,11 @@ test('kitchen sink', () => {
 
       [logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png &quot;Logo Title Text 2&quot;</code></pre><p>Here&#x27;s our logo (hover to see the title text):</p><p>Inline-style:
       <img src="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png" alt="alt text" title="Logo Title Text 1"/></p><p>Reference-style:
-      </p><a name="code"></a><h2>Code and Syntax Highlighting</h2><p>Code blocks are part of the Markdown spec, but syntax highlighting isn&#x27;t. However, many renderers -- like Github&#x27;s and <em>Markdown Here</em> -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer. <em>Markdown Here</em> supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the <a href="http://softwaremaniacs.org/media/soft/highlight/test.html" title="">highlight.js demo page</a>.</p><pre><code>Inline \`code\` has \`back-ticks around\` it.</code></pre><p>Inline <code>code</code> has <code>back-ticks around</code> it.</p><p>Blocks of code are either fenced by lines with three back-ticks <code>\`\`\`</code>, or are indented with four spaces. I recommend only using the fenced code blocks -- they&#x27;re easier and only they support syntax highlighting.</p><pre><code>var s = &quot;JavaScript syntax highlighting&quot;;
-      alert(s);</code></pre><pre><code>s = &quot;Python syntax highlighting&quot;
+      </p><a name="code"></a><h2>Code and Syntax Highlighting</h2><p>Code blocks are part of the Markdown spec, but syntax highlighting isn&#x27;t. However, many renderers -- like Github&#x27;s and <em>Markdown Here</em> -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer. <em>Markdown Here</em> supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the <a href="http://softwaremaniacs.org/media/soft/highlight/test.html" title="">highlight.js demo page</a>.</p><pre><code>Inline \`code\` has \`back-ticks around\` it.</code></pre><p>Inline <code>code</code> has <code>back-ticks around</code> it.</p><p>Blocks of code are either fenced by lines with three back-ticks <code>\`\`\`</code>, or are indented with four spaces. I recommend only using the fenced code blocks -- they&#x27;re easier and only they support syntax highlighting.</p><pre><code class="language-javascript">var s = &quot;JavaScript syntax highlighting&quot;;
+      alert(s);</code></pre><pre><code class="language-python">s = &quot;Python syntax highlighting&quot;
       print s</code></pre><pre><code>No language indicated, so no syntax highlighting. 
-      But let&#x27;s throw in a &amp;lt;b&amp;gt;tag&amp;lt;/b&amp;gt;.</code></pre><pre><code>var s = &quot;JavaScript syntax highlighting&quot;;
-      alert(s);</code></pre><pre><code>s = &quot;Python syntax highlighting&quot;
+      But let&#x27;s throw in a &amp;lt;b&amp;gt;tag&amp;lt;/b&amp;gt;.</code></pre><pre><code class="language-javascript">var s = &quot;JavaScript syntax highlighting&quot;;
+      alert(s);</code></pre><pre><code class="language-python">s = &quot;Python syntax highlighting&quot;
       print s</code></pre><pre><code>No language indicated, so no syntax highlighting in Markdown Here (varies on Github). 
       But let&#x27;s throw in a &lt;b&gt;tag&lt;/b&gt;.</code></pre><a name="tables"></a><h2>Tables</h2><p>Tables aren&#x27;t part of the core Markdown spec, but they are part of GFM and <em>Markdown Here</em> supports them. They are an easy way of adding tables to your email -- a task that would otherwise require copy-pasting from another application.</p><pre><code>Colons can be used to align columns.
 
@@ -1913,6 +1943,7 @@ test('kitchen sink', () => {
       Combined emphasis with **asterisks and _underscores_**.
 
       Strikethrough uses two tildes. ~~Scratch this.~~",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2103,6 +2134,7 @@ test('kitchen sink', () => {
       * Unordered list can use asterisks
       - Or minuses
       + Or pluses",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2446,6 +2478,7 @@ test('kitchen sink', () => {
       [arbitrary case-insensitive reference text]: https://www.mozilla.org
       [1]: http://slashdot.org
       [link text itself]: http://www.reddit.com",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2658,6 +2691,7 @@ test('kitchen sink', () => {
       ![alt text][logo]
 
       [logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png "Logo Title Text 2"",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2791,6 +2825,7 @@ test('kitchen sink', () => {
                     "key": null,
                     "props": {
                       "children": "Inline \`code\` has \`back-ticks around\` it.",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2868,6 +2903,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "var s = "JavaScript syntax highlighting";
       alert(s);",
+                      "className": "language-javascript",
                     },
                     "type": "code",
                   },
@@ -2888,6 +2924,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "s = "Python syntax highlighting"
       print s",
+                      "className": "language-python",
                     },
                     "type": "code",
                   },
@@ -2908,6 +2945,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "No language indicated, so no syntax highlighting. 
       But let's throw in a &lt;b&gt;tag&lt;/b&gt;.",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -2928,6 +2966,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "var s = "JavaScript syntax highlighting";
       alert(s);",
+                      "className": "language-javascript",
                     },
                     "type": "code",
                   },
@@ -2948,6 +2987,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "s = "Python syntax highlighting"
       print s",
+                      "className": "language-python",
                     },
                     "type": "code",
                   },
@@ -2968,6 +3008,7 @@ test('kitchen sink', () => {
                     "props": {
                       "children": "No language indicated, so no syntax highlighting in Markdown Here (varies on Github). 
       But let's throw in a <b>tag</b>.",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3046,6 +3087,7 @@ test('kitchen sink', () => {
       --- | --- | ---
       *Still* | \`renders\` | **nicely**
       1 | 2 | 3",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3515,6 +3557,7 @@ test('kitchen sink', () => {
       Quote break.
 
       > This is a very long line that will still be quoted properly when it wraps. Oh boy let's keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can *put* **Markdown** into a blockquote. ",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3644,6 +3687,7 @@ test('kitchen sink', () => {
         <dt>Markdown in HTML</dt>
         <dd>Does *not* work **very** well. Use HTML <em>tags</em>.</dd>
       </dl>",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3696,6 +3740,7 @@ test('kitchen sink', () => {
       ___
 
       Underscores",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3825,6 +3870,7 @@ test('kitchen sink', () => {
 
       This line is also a separate paragraph, but...
       This line is only separated by a single newline, so it's a separate line in the *same paragraph*.",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3965,6 +4011,7 @@ test('kitchen sink', () => {
                       "children": "<a href="http://www.youtube.com/watch?feature=player_embedded&v=YOUTUBE_VIDEO_ID_HERE
       " target="_blank"><img src="http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg" 
       alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
@@ -3994,6 +4041,7 @@ test('kitchen sink', () => {
                     "key": null,
                     "props": {
                       "children": "[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)",
+                      "className": undefined,
                     },
                     "type": "code",
                   },
