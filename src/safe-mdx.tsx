@@ -403,10 +403,9 @@ export function getJsxAttrs(
         .map((attr) => {
             if (attr.type === 'mdxJsxExpressionAttribute') {
                 onError({
-                    message: `Expressions in jsx props are not supported (${attr.value.replace(
-                        /\n+/g,
-                        ' ',
-                    )})`,
+                    message: `Expressions in jsx props are not supported (${attr.value
+                        .replace(/\n+/g, ' ')
+                        .replace(/ +/g, ' ')})`,
                 })
                 return
             }

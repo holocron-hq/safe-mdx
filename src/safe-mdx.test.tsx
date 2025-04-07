@@ -392,7 +392,7 @@ test('props parsing', () => {
             "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
           },
           {
-            "message": "Expressions in jsx props are not supported (...{       spread: true     })",
+            "message": "Expressions in jsx props are not supported (...{ spread: true })",
           },
         ],
         "html": "<h1><p>hi</p></h1>",
