@@ -16,7 +16,7 @@
     },
     "scripts": {
         "build": "tsc",
-        "test": "vitest run",
+        "test": "vitest",
         "prepublishOnly": "pnpm build"
     },
     "files": [
@@ -32,11 +32,14 @@
         "react": "*"
     },
     "dependencies": {
+        "collapse-white-space": "^2.1.0",
         "html-to-jsx-transform": "^1.0.0",
         "remark": "^15.0.1",
         "remark-frontmatter": "^5.0.0",
         "remark-gfm": "^4.0.0",
-        "remark-mdx": "^3.0.0"
+        "remark-mdx": "^3.0.0",
+        "unified": "^11.0.5",
+        "unist-util-visit": "^5.0.0"
     },
     "devDependencies": {
         "@types/mdast": "^4.0.0",
@@ -49,6 +52,6 @@
         "react": "^19.0.0",
         "react-dom": "^19.0.0",
         "typescript": "5.5.2",
-        "vitest": "^2.1.8"
+        "vitest": "^3.1.1"
     }
 }
