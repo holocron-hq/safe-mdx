@@ -11,7 +11,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{matrix.node}}
-      - run: npm install
+      - uses: pnpm/action-setup@master
+        with:
+          version: 9
+          run_install: false
+      - run: pnpm install
       - run: npm run build
       - run: npm test
     strategy:
