@@ -1,8 +1,8 @@
-import React from 'react'
 import dedent from 'dedent'
-import { test, expect } from 'vitest'
-import { mdastBfs, MdastToJsx, mdxParser } from './safe-mdx.js'
+import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { expect, test } from 'vitest'
+import { mdastBfs, MdastToJsx, mdxParse } from './safe-mdx.js'
 void React
 
 const components = {
@@ -29,7 +29,8 @@ test('remark and jsx does not wrap in p', () => {
 
     something
     `
-    const mdast = mdxParser.parse(code)
+    const mdast = mdxParse(code)
+    
 
     mdastBfs(mdast, (x) => {
         delete x.position
@@ -57,20 +58,15 @@ test('remark and jsx does not wrap in p', () => {
             "type": "paragraph",
           },
           {
+            "attributes": [],
             "children": [
               {
-                "attributes": [],
-                "children": [
-                  {
-                    "type": "text",
-                    "value": "heading",
-                  },
-                ],
-                "name": "Heading",
-                "type": "mdxJsxTextElement",
+                "type": "text",
+                "value": "heading",
               },
             ],
-            "type": "paragraph",
+            "name": "Heading",
+            "type": "mdxJsxFlowElement",
           },
           {
             "children": [
@@ -99,7 +95,7 @@ test('basic', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Hello</h1><p>i am a paragraph</p><p><h1>heading</h1></p>",
+        "html": "<h1>Hello</h1><p>i am a paragraph</p><h1>heading</h1>",
         "result": <React.Fragment>
           <h1>
             Hello
@@ -107,11 +103,9 @@ test('basic', () => {
           <p>
             i am a paragraph
           </p>
-          <p>
-            <Heading>
-              heading
-            </Heading>
-          </p>
+          <Heading>
+            heading
+          </Heading>
         </React.Fragment>,
       }
     `)
@@ -280,15 +274,13 @@ test('inline jsx', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<p><h1>hello</h1></p>",
+        "html": "<h1>hello</h1>",
         "result": <React.Fragment>
-          <p>
-            <Heading
-              level={2}
-            >
-              hello
-            </Heading>
-          </p>
+          <Heading
+            level={2}
+          >
+            hello
+          </Heading>
         </React.Fragment>,
       }
     `)

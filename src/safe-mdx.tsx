@@ -14,11 +14,21 @@ import { remarkMarkAndUnravel } from './plugins.js'
 
 type MyRootContent = RootContent | Root
 
-export const mdxParser = remark()
+const processor = remark()
     .use(remarkMdx)
     .use(remarkMarkAndUnravel)
     .use(remarkFrontmatter, ['yaml', 'toml'])
     .use(remarkGfm)
+    .use(() => {
+        return (tree, file) => {
+            file.data.ast = tree
+        }
+    })
+
+export function mdxParse(code: string) {
+    const file = processor.processSync(code)
+    return file.data.ast as Root
+}
 
 void React
 
@@ -44,7 +54,7 @@ export class MdastToJsx {
         components = {} as ComponentsMap,
     }) {
         this.str = code
-        this.mdast = mdast || mdxParser.parse(code)
+        this.mdast = mdast || mdxParse(code)
 
         this.c = {
             ...Object.fromEntries(

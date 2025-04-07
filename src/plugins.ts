@@ -2,6 +2,16 @@ import { Root, RootContent } from 'mdast'
 import { collapseWhiteSpace } from 'collapse-white-space'
 import { visit } from 'unist-util-visit'
 
+
+/**
+ * https://github.com/mdx-js/mdx/blob/b3351fadcb6f78833a72757b7135dcfb8ab646fe/packages/mdx/lib/plugin/remark-mark-and-unravel.js
+ * A tiny plugin that unravels `<p><h1>x</h1></p>` but also
+ * `<p><Component /></p>` (so it has no knowledge of "HTML").
+ *
+ * It also marks JSX as being explicitly JSX, so when a user passes a `h1`
+ * component, it is used for `# heading` but not for `<h1>heading</h1>`.
+ *
+ */
 export function remarkMarkAndUnravel() {
     return function (tree: Root) {
         
