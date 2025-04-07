@@ -21,5 +21,4 @@ jobs:
     strategy:
       matrix:
         node:
-          - lts/gallium
-          - node
+          - 22
