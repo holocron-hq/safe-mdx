@@ -21,16 +21,19 @@ function render(code) {
     return { result, errors: visitor.errors || [], html }
 }
 
-
 test('remark and jsx does not wrap in p', () => {
     const code = dedent`
+    ---
+    title: createSearchParams
+    ---
+    
     # Hello
 
     i am a paragraph
 
     <Heading>heading</Heading>
 
-    something
+    sone \`inline code\`
 
     \`\`\`tsx
     some code
@@ -46,6 +49,10 @@ test('remark and jsx does not wrap in p', () => {
     expect(mdast).toMatchInlineSnapshot(`
       {
         "children": [
+          {
+            "type": "yaml",
+            "value": "title: createSearchParams",
+          },
           {
             "children": [
               {
@@ -80,7 +87,11 @@ test('remark and jsx does not wrap in p', () => {
             "children": [
               {
                 "type": "text",
-                "value": "something",
+                "value": "sone ",
+              },
+              {
+                "type": "inlineCode",
+                "value": "inline code",
               },
             ],
             "type": "paragraph",
@@ -2009,5 +2020,146 @@ test('code block rendering', () => {
           </pre>
         </React.Fragment>,
       }
+    `)
+})
+
+test('code is not wrapped by p', () => {
+    const code = `
+---
+title: createSearchParams
+---
+
+# createSearchParams
+
+[MODES: framework, data, declarative]
+
+## Summary
+
+[Reference Documentation ↗](https://api.reactrouter.com/v7/functions/react_router.createSearchParams.html)
+
+Creates a URLSearchParams object using the given initializer.
+
+This is identical to \`new URLSearchParams(init)\` except it also
+supports arrays as values in the object form of the initializer
+instead of just strings. This is convenient when you need multiple
+values for a given key, but don't want to use an array initializer.
+
+For example, instead of:
+
+\`\`\`tsx
+let searchParams = new URLSearchParams([
+  ["sort", "name"],
+  ["sort", "price"],
+]);
+\`\`\`
+
+you can do:
+
+\`\`\`
+let searchParams = createSearchParams({
+  sort: ['name', 'price']
+});
+\`\`\`
+
+## Signature
+
+\`\`\`tsx
+createSearchParams(init): URLSearchParams
+\`\`\`
+
+## Params
+
+### init
+
+[modes: framework, data, declarative]
+
+_No documentation_
+
+  `
+    const jsx = render(code)
+    expect(jsx.result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <hr />
+        <h2>
+          title: createSearchParams
+        </h2>
+        <h1>
+          createSearchParams
+        </h1>
+        <p>
+          [MODES: framework, data, declarative]
+        </p>
+        <h2>
+          Summary
+        </h2>
+        <p>
+          <a
+            href="https://api.reactrouter.com/v7/functions/react_router.createSearchParams.html"
+            title=""
+          >
+            Reference Documentation ↗
+          </a>
+        </p>
+        <p>
+          Creates a URLSearchParams object using the given initializer.
+        </p>
+        <p>
+          This is identical to 
+          <code>
+            new URLSearchParams(init)
+          </code>
+           except it also
+      supports arrays as values in the object form of the initializer
+      instead of just strings. This is convenient when you need multiple
+      values for a given key, but don't want to use an array initializer.
+        </p>
+        <p>
+          For example, instead of:
+        </p>
+        <pre>
+          <code
+            className="language-tsx"
+          >
+            let searchParams = new URLSearchParams([
+        ["sort", "name"],
+        ["sort", "price"],
+      ]);
+          </code>
+        </pre>
+        <p>
+          you can do:
+        </p>
+        <pre>
+          <code>
+            let searchParams = createSearchParams({
+        sort: ['name', 'price']
+      });
+          </code>
+        </pre>
+        <h2>
+          Signature
+        </h2>
+        <pre>
+          <code
+            className="language-tsx"
+          >
+            createSearchParams(init): URLSearchParams
+          </code>
+        </pre>
+        <h2>
+          Params
+        </h2>
+        <h3>
+          init
+        </h3>
+        <p>
+          [modes: framework, data, declarative]
+        </p>
+        <p>
+          <em>
+            No documentation
+          </em>
+        </p>
+      </React.Fragment>
     `)
 })

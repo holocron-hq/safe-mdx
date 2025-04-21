@@ -33,12 +33,28 @@ export function mdxParse(code: string) {
 
 void React
 
+export type CustomTransformer = (
+    node: MyRootContent,
+    transform: (node: MyRootContent) => ReactNode,
+) => ReactNode | undefined
+
 export function SafeMdxRenderer({
     components,
     code = '',
     mdast = null as any,
+    customTransformer,
+}: {
+    components?: ComponentsMap
+    code?: string
+    mdast?: MyRootContent
+    customTransformer?: CustomTransformer
 }) {
-    const visitor = new MdastToJsx({ code, mdast, components })
+    const visitor = new MdastToJsx({
+        code,
+        mdast,
+        components,
+        customTransformer,
+    })
     const result = visitor.run()
     return result
 }
@@ -49,13 +65,25 @@ export class MdastToJsx {
     jsxStr: string = ''
     c: ComponentsMap
     errors: { message: string }[] = []
+    customTransformer?: CustomTransformer
+
     constructor({
         code = '',
         mdast = undefined as any,
         components = {} as ComponentsMap,
+        customTransformer,
+    }: {
+        code?: string
+        mdast?: MyRootContent
+        components?: ComponentsMap
+        customTransformer?: (
+            node: MyRootContent,
+            transform: (node: MyRootContent) => ReactNode,
+        ) => ReactNode | undefined
     }) {
         this.str = code
         this.mdast = mdast || mdxParse(code)
+        this.customTransformer = customTransformer
 
         this.c = {
             ...Object.fromEntries(
@@ -149,6 +177,17 @@ export class MdastToJsx {
     mdastTransformer(node: MyRootContent): ReactNode {
         if (!node) {
             return []
+        }
+
+        // Check for custom transformer first, giving it higher priority
+        if (this.customTransformer) {
+            const customResult = this.customTransformer(
+                node,
+                this.mdastTransformer.bind(this),
+            )
+            if (customResult !== undefined) {
+                return customResult
+            }
         }
 
         switch (node.type) {
