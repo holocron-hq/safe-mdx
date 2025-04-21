@@ -3,6 +3,8 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
 import { mdastBfs, MdastToJsx, mdxParse } from './safe-mdx.js'
+import { remark } from 'remark'
+import remarkMdx from 'remark-mdx'
 void React
 
 const components = {
@@ -19,6 +21,7 @@ function render(code) {
     return { result, errors: visitor.errors || [], html }
 }
 
+
 test('remark and jsx does not wrap in p', () => {
     const code = dedent`
     # Hello
@@ -28,9 +31,14 @@ test('remark and jsx does not wrap in p', () => {
     <Heading>heading</Heading>
 
     something
+
+    \`\`\`tsx
+    some code
+    \`\`\`
+
+    what
     `
     const mdast = mdxParse(code)
-    
 
     mdastBfs(mdast, (x) => {
         delete x.position
@@ -73,6 +81,21 @@ test('remark and jsx does not wrap in p', () => {
               {
                 "type": "text",
                 "value": "something",
+              },
+            ],
+            "type": "paragraph",
+          },
+          {
+            "lang": "tsx",
+            "meta": null,
+            "type": "code",
+            "value": "some code",
+          },
+          {
+            "children": [
+              {
+                "type": "text",
+                "value": "what",
               },
             ],
             "type": "paragraph",

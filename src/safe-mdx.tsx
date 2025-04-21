@@ -11,14 +11,15 @@ import remarkMdx from 'remark-mdx'
 
 import { Fragment, ReactNode } from 'react'
 import { remarkMarkAndUnravel } from './plugins.js'
+export { remarkMarkAndUnravel }
 
 type MyRootContent = RootContent | Root
 
-const processor = remark()
+const mdxProcessor = remark()
     .use(remarkMdx)
-    .use(remarkMarkAndUnravel)
     .use(remarkFrontmatter, ['yaml', 'toml'])
     .use(remarkGfm)
+    .use(remarkMarkAndUnravel)
     .use(() => {
         return (tree, file) => {
             file.data.ast = tree
@@ -26,7 +27,7 @@ const processor = remark()
     })
 
 export function mdxParse(code: string) {
-    const file = processor.processSync(code)
+    const file = mdxProcessor.processSync(code)
     return file.data.ast as Root
 }
 
