@@ -31,7 +31,13 @@ export function mdxParse(code: string) {
     return file.data.ast as Root
 }
 
-void React
+declare module 'mdast' {
+    export interface Data {
+        hProperties?: {
+            id?: string
+        }
+    }
+}
 
 export type CustomTransformer = (
     node: MyRootContent,
@@ -232,16 +238,24 @@ export class MdastToJsx {
             }
             case 'heading': {
                 const level = node.depth
-
                 const Tag = this.c[`h${level}`] ?? `h${level}`
-                return <Tag>{this.mapMdastChildren(node)}</Tag>
+
+                return (
+                    <Tag {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </Tag>
+                )
             }
             case 'paragraph': {
-                return <this.c.p>{this.mapMdastChildren(node)}</this.c.p>
+                return (
+                    <this.c.p {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.p>
+                )
             }
             case 'blockquote': {
                 return (
-                    <this.c.blockquote>
+                    <this.c.blockquote {...node.data?.hProperties}>
                         {this.mapMdastChildren(node)}
                     </this.c.blockquote>
                 )
@@ -256,7 +270,7 @@ export class MdastToJsx {
                 const language = node.lang || ''
                 const code = node.value
                 const codeBlock = (className?: string) => (
-                    <this.c.pre>
+                    <this.c.pre {...node.data?.hProperties}>
                         <this.c.code className={className}>{code}</this.c.code>
                     </this.c.pre>
                 )
@@ -281,23 +295,37 @@ export class MdastToJsx {
             case 'list': {
                 if (node.ordered) {
                     return (
-                        <this.c.ol start={node.start!}>
+                        <this.c.ol
+                            start={node.start!}
+                            {...node.data?.hProperties}
+                        >
                             {this.mapMdastChildren(node)}
                         </this.c.ol>
                     )
                 }
-                return <this.c.ul>{this.mapMdastChildren(node)}</this.c.ul>
+                return (
+                    <this.c.ul {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.ul>
+                )
             }
             case 'listItem': {
                 // https://github.com/syntax-tree/mdast-util-gfm-task-list-item#syntax-tree
                 if (node?.checked != null) {
                     return (
-                        <this.c.li data-checked={node.checked}>
+                        <this.c.li
+                            data-checked={node.checked}
+                            {...node.data?.hProperties}
+                        >
                             {this.mapMdastChildren(node)}
                         </this.c.li>
                     )
                 }
-                return <this.c.li>{this.mapMdastChildren(node)}</this.c.li>
+                return (
+                    <this.c.li {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.li>
+                )
             }
             case 'text': {
                 if (!node.value) {
@@ -309,33 +337,54 @@ export class MdastToJsx {
                 const src = node.url || ''
                 const alt = node.alt || ''
                 const title = node.title || ''
-                return <this.c.img src={src} alt={alt} title={title} />
+                return (
+                    <this.c.img
+                        src={src}
+                        alt={alt}
+                        title={title}
+                        {...node.data?.hProperties}
+                    />
+                )
             }
             case 'link': {
                 const href = node.url || ''
                 const title = node.title || ''
                 return (
-                    <this.c.a {...{ href, title }}>
+                    <this.c.a {...{ href, title }} {...node.data?.hProperties}>
                         {this.mapMdastChildren(node)}
                     </this.c.a>
                 )
             }
             case 'strong': {
                 return (
-                    <this.c.strong>{this.mapMdastChildren(node)}</this.c.strong>
+                    <this.c.strong {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.strong>
                 )
             }
             case 'emphasis': {
-                return <this.c.em>{this.mapMdastChildren(node)}</this.c.em>
+                return (
+                    <this.c.em {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.em>
+                )
             }
             case 'delete': {
-                return <this.c.del>{this.mapMdastChildren(node)}</this.c.del>
+                return (
+                    <this.c.del {...node.data?.hProperties}>
+                        {this.mapMdastChildren(node)}
+                    </this.c.del>
+                )
             }
             case 'inlineCode': {
                 if (!node.value) {
                     return []
                 }
-                return <this.c.code>{node.value}</this.c.code>
+                return (
+                    <this.c.code {...node.data?.hProperties}>
+                        {node.value}
+                    </this.c.code>
+                )
             }
             case 'break': {
                 return <this.c.br />
@@ -348,7 +397,7 @@ export class MdastToJsx {
                     this.mapMdastChildren(node),
                 )
                 return (
-                    <this.c.table>
+                    <this.c.table {...node.data?.hProperties}>
                         {head && <this.c.thead>{head}</this.c.thead>}
                         {!!body?.length && <this.c.tbody>{body}</this.c.tbody>}
                     </this.c.table>
@@ -356,15 +405,18 @@ export class MdastToJsx {
             }
             case 'tableRow': {
                 return (
-                    <this.c.tr className=''>
+                    <this.c.tr className='' {...node.data?.hProperties}>
                         {this.mapMdastChildren(node)}
                     </this.c.tr>
                 )
             }
             case 'tableCell': {
                 let content = this.mapMdastChildren(node)
-
-                return <this.c.td className=''>{content}</this.c.td>
+                return (
+                    <this.c.td className='' {...node.data?.hProperties}>
+                        {content}
+                    </this.c.td>
+                )
             }
             case 'definition': {
                 return []
@@ -381,7 +433,7 @@ export class MdastToJsx {
                 })
 
                 return (
-                    <this.c.a href={href}>
+                    <this.c.a href={href} {...node.data?.hProperties}>
                         {this.mapMdastChildren(node)}
                     </this.c.a>
                 )
