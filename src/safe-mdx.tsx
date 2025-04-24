@@ -644,6 +644,22 @@ const nativeTags = [
     'video',
     'code',
     'pre',
+    'figure',
+    'canvas',
+    'details',
+    'dl',
+    'dt',
+    'dd',
+    'fieldset',
+    'footer',
+    'header',
+    'legend',
+    'main',
+    'mark',
+    'nav',
+    'progress',
+    'summary',
+    'time',
 ] as const
 
 const supportedLanguages = [
@@ -927,4 +943,4 @@ const supportedLanguages = [
 ] as const
 const supportedLanguagesSet = new Set(supportedLanguages)
 
-type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any }
+type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & { [key: string]: any }
