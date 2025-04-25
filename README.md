@@ -83,7 +83,7 @@ By default `safe-mdx` already has support for
 
 ```tsx
 import { SafeMdxRenderer } from 'safe-mdx'
-import { remark } from 'remark'
+import { remark, Root } from 'remark'
 import remarkMdx from 'remark-mdx'
 
 const code = `
@@ -103,7 +103,7 @@ const parser = remark()
     })
 
 const file = parser.processSync(code)
-const mdast = file.data.ast as any
+const mdast = file.data.ast as Root
 
 export function Page() {
     return <SafeMdxRenderer code={code} mdast={mdast} />
@@ -146,7 +146,7 @@ export function Page() {
 }
 ```
 
-## Override code block Component
+## Override code block component
 
 It's not pratical to override the code block component using `code` as a component override, because it will also be used for inline code blocks. It also does not have access to meta string and language.
 
@@ -202,7 +202,7 @@ This is ok if you render your MDX in isolation from each tenant, for example on 
 
 These features are not supported yet:
 
-- expressions with dynamic values or values defined with `export`
+- expressions or values defined with `export`
 - importing components or data from other files
 
-To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer`. This will also make your MDX files cleaner and easier to read.
+To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.
