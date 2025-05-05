@@ -20,6 +20,16 @@ function render(code) {
     // console.log(JSON.stringify(result, null, 2))
     return { result, errors: visitor.errors || [], html }
 }
+import { htmlToJsx } from 'html-to-jsx-transform'
+
+test('htmlToJsx', () => {
+    expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
+    expect(htmlToJsx('<p>text</p>')).toMatchInlineSnapshot(`"<p>text</p>"`)
+    expect(htmlToJsx('before <p>text</p>')).toMatchInlineSnapshot(`"<>before <p>text</p></>"`)
+    expect(htmlToJsx('<nonexisting>text</nonexisting>')).toMatchInlineSnapshot(
+        `"<nonexisting>text</nonexisting>"`,
+    )
+})
 
 test('markdown inside jsx', () => {
     const code = dedent`
