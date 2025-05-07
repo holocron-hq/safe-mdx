@@ -16,7 +16,6 @@ import { Fragment, ReactNode } from 'react'
 
 type MyRootContent = RootContent | Root
 
-
 export function mdxParse(code: string) {
     const file = mdxProcessor.processSync(code)
     return file.data.ast as Root
@@ -934,8 +933,9 @@ const supportedLanguages = [
 ] as const
 const supportedLanguagesSet = new Set(supportedLanguages)
 
-type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & { [key: string]: any }
-
+type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & {
+    [key: string]: any
+}
 
 /**
  * https://github.com/mdx-js/mdx/blob/b3351fadcb6f78833a72757b7135dcfb8ab646fe/packages/mdx/lib/plugin/remark-mark-and-unravel.js
@@ -948,12 +948,10 @@ type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & { [key: stri
  */
 export function remarkMarkAndUnravel() {
     return function (tree: Root) {
-
         visit(tree, function (node, index, parent) {
             let offset = -1
             let all = true
             let oneOrMore = false
-
 
             if (
                 parent &&
@@ -1019,9 +1017,6 @@ export function remarkMarkAndUnravel() {
         })
     }
 }
-
-
-export { remarkMarkAndUnravel }
 
 const mdxProcessor = remark()
     .use(remarkMdx)
