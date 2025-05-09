@@ -57,7 +57,7 @@ test('markdown inside jsx', () => {
             prop="value"
           >
             <p>
-              Component
+              Component 
               <em>
                 children
               </em>
@@ -65,7 +65,7 @@ test('markdown inside jsx', () => {
           </Heading>
           <figure>
             <p>
-              some
+              some 
               <em>
                 bold
               </em>
@@ -416,7 +416,7 @@ test('complex jsx, self closing tags', () => {
         "html": "<h1>hello <br/></h1><br/><p>content</p>",
         "result": <React.Fragment>
           <h1>
-            hello
+            hello 
             <br />
           </h1>
           <br />
@@ -1106,21 +1106,21 @@ test('kitchen sink', () => {
             Markdown Kitchen Sink
           </h1>
           <p>
-            This file is
+            This file is 
             <a
               href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet"
               title=""
             >
               https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
             </a>
-             plus a few fixes and additions. Used by
+             plus a few fixes and additions. Used by 
             <a
               href="https://github.com/obedm503/bootmark"
               title=""
             >
               obedm503/bootmark
             </a>
-             to
+             to 
             <a
               href="https://obedm503.github.io/bootmark/docs/markdown-cheatsheet.html"
               title=""
@@ -1130,14 +1130,14 @@ test('kitchen sink', () => {
              it's styling features.
           </p>
           <p>
-            This is intended as a quick reference and showcase. For more complete info, see
+            This is intended as a quick reference and showcase. For more complete info, see 
             <a
               href="http://daringfireball.net/projects/markdown/"
               title=""
             >
               John Gruber's original spec
             </a>
-             and the
+             and the 
             <a
               href="http://github.github.com/github-flavored-markdown/"
               title=""
@@ -1147,14 +1147,14 @@ test('kitchen sink', () => {
             .
           </p>
           <p>
-            Note that there is also a
+            Note that there is also a 
             <a
               href="./Markdown-Here-Cheatsheet"
               title=""
             >
               Cheatsheet specific to Markdown Here
             </a>
-             if that's what you're looking for. You can also check out
+             if that's what you're looking for. You can also check out 
             <a
               href="./Other-Markdown-Tools"
               title=""
@@ -1173,7 +1173,7 @@ test('kitchen sink', () => {
             >
               Headers
             </a>
-
+            
 
             <a
               href="#emphasis"
@@ -1181,7 +1181,7 @@ test('kitchen sink', () => {
             >
               Emphasis
             </a>
-
+            
 
             <a
               href="#lists"
@@ -1189,7 +1189,7 @@ test('kitchen sink', () => {
             >
               Lists
             </a>
-
+            
 
             <a
               href="#links"
@@ -1197,7 +1197,7 @@ test('kitchen sink', () => {
             >
               Links
             </a>
-
+            
 
             <a
               href="#images"
@@ -1205,7 +1205,7 @@ test('kitchen sink', () => {
             >
               Images
             </a>
-
+            
 
             <a
               href="#code"
@@ -1213,7 +1213,7 @@ test('kitchen sink', () => {
             >
               Code and Syntax Highlighting
             </a>
-
+            
 
             <a
               href="#tables"
@@ -1221,7 +1221,7 @@ test('kitchen sink', () => {
             >
               Tables
             </a>
-
+            
 
             <a
               href="#blockquotes"
@@ -1229,7 +1229,7 @@ test('kitchen sink', () => {
             >
               Blockquotes
             </a>
-
+            
 
             <a
               href="#html"
@@ -1237,7 +1237,7 @@ test('kitchen sink', () => {
             >
               Inline HTML
             </a>
-
+            
 
             <a
               href="#hr"
@@ -1245,7 +1245,7 @@ test('kitchen sink', () => {
             >
               Horizontal Rule
             </a>
-
+            
 
             <a
               href="#lines"
@@ -1253,7 +1253,7 @@ test('kitchen sink', () => {
             >
               Line Breaks
             </a>
-
+            
 
             <a
               href="#videos"
@@ -1340,31 +1340,31 @@ test('kitchen sink', () => {
             </code>
           </pre>
           <p>
-            Emphasis, aka italics, with
+            Emphasis, aka italics, with 
             <em>
               asterisks
             </em>
-             or
+             or 
             <em>
               underscores
             </em>
             .
           </p>
           <p>
-            Strong emphasis, aka bold, with
+            Strong emphasis, aka bold, with 
             <strong>
               asterisks
             </strong>
-             or
+             or 
             <strong>
               underscores
             </strong>
             .
           </p>
           <p>
-            Combined emphasis with
+            Combined emphasis with 
             <strong>
-              asterisks and
+              asterisks and 
               <em>
                 underscores
               </em>
@@ -1372,7 +1372,7 @@ test('kitchen sink', () => {
             .
           </p>
           <p>
-            Strikethrough uses two tildes.
+            Strikethrough uses two tildes. 
             <del>
               Scratch this.
             </del>
@@ -1548,7 +1548,7 @@ test('kitchen sink', () => {
             </a>
           </p>
           <p>
-            Or leave it empty and use the
+            Or leave it empty and use the 
             <a
               href="http://www.reddit.com"
             >
@@ -1613,15 +1613,15 @@ test('kitchen sink', () => {
             Code and Syntax Highlighting
           </h2>
           <p>
-            Code blocks are part of the Markdown spec, but syntax highlighting isn't. However, many renderers -- like Github's and
+            Code blocks are part of the Markdown spec, but syntax highlighting isn't. However, many renderers -- like Github's and 
             <em>
               Markdown Here
             </em>
-             -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer.
+             -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer. 
             <em>
               Markdown Here
             </em>
-             supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the
+             supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the 
             <a
               href="http://softwaremaniacs.org/media/soft/highlight/test.html"
               title=""
@@ -1636,18 +1636,18 @@ test('kitchen sink', () => {
             </code>
           </pre>
           <p>
-            Inline
+            Inline 
             <code>
               code
             </code>
-             has
+             has 
             <code>
               back-ticks around
             </code>
              it.
           </p>
           <p>
-            Blocks of code are either fenced by lines with three back-ticks
+            Blocks of code are either fenced by lines with three back-ticks 
             <code>
               \`\`\`
             </code>
@@ -1704,7 +1704,7 @@ test('kitchen sink', () => {
             Tables
           </h2>
           <p>
-            Tables aren't part of the core Markdown spec, but they are part of GFM and
+            Tables aren't part of the core Markdown spec, but they are part of GFM and 
             <em>
               Markdown Here
             </em>
@@ -1914,11 +1914,11 @@ test('kitchen sink', () => {
           </p>
           <blockquote>
             <p>
-              This is a very long line that will still be quoted properly when it wraps. Oh boy let's keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can
+              This is a very long line that will still be quoted properly when it wraps. Oh boy let's keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can 
               <em>
                 put
               </em>
-
+               
               <strong>
                 Markdown
               </strong>
@@ -1956,15 +1956,15 @@ test('kitchen sink', () => {
               Markdown in HTML
             </dt>
             <dd>
-              Does
+              Does 
               <em>
                 not
               </em>
-               work
+               work 
               <strong>
                 very
               </strong>
-               well. Use HTML
+               well. Use HTML 
               <em>
                 tags
               </em>
@@ -2035,7 +2035,7 @@ test('kitchen sink', () => {
             Here's a line for us to start with.
           </p>
           <p>
-            This line is separated from the one above by two newlines, so it will be a
+            This line is separated from the one above by two newlines, so it will be a 
             <em>
               separate paragraph
             </em>
@@ -2043,14 +2043,14 @@ test('kitchen sink', () => {
           </p>
           <p>
             This line is also begins a separate paragraph, but...
-      This line is only separated by a single newline, so it's a separate line in the
+      This line is only separated by a single newline, so it's a separate line in the 
             <em>
               same paragraph
             </em>
             .
           </p>
           <p>
-            (Technical note:
+            (Technical note: 
             <em>
               Markdown Here
             </em>
@@ -2205,7 +2205,7 @@ _No documentation_
           Creates a URLSearchParams object using the given initializer.
         </p>
         <p>
-          This is identical to
+          This is identical to 
           <code>
             new URLSearchParams(init)
           </code>
