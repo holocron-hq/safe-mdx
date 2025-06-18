@@ -10,9 +10,10 @@
 
 ## Features
 
-- Render MDX without `eval` on the server, so you can render MDX in Cloudflare Workers and Vercel Edge
-- Works with React Server Components
-- Supports custom MDX components
+-   Render MDX without `eval` on the server, so you can render MDX in Cloudflare Workers and Vercel Edge
+-   Works with React Server Components
+-   Supports custom MDX components
+-   Support for rendering streaming MDX, by using `completeJsxTags`
 
 ## Why
 
@@ -22,9 +23,9 @@ For example in an hypothetical platform similar to Notion, where users can write
 
 Some use cases for this package are:
 
-- Render MDX in Cloudflare Workers and Vercel Edge
-- Safely render dynamically generated MDX code, like inside a ChatGPT like interface
-- Render user generated MDX, like in a multi-tenant SaaS app
+-   Render MDX in Cloudflare Workers and Vercel Edge
+-   Safely render dynamically generated MDX code, like inside a ChatGPT like interface
+-   Render user generated MDX, like in a multi-tenant SaaS app
 
 <br>
 
@@ -78,8 +79,8 @@ If you want to use custom MDX plugins, you can pass your own MDX processed ast.
 
 By default `safe-mdx` already has support for
 
-- frontmatter
-- gfm
+-   frontmatter
+-   gfm
 
 ```tsx
 import { SafeMdxRenderer } from 'safe-mdx'
@@ -190,6 +191,28 @@ export function Page() {
 }
 ```
 
+## Rendering streaming MDX from an LLM
+
+Use `completeJsxTags` to make streaming invalid MDX render, this function will add missing closing tags
+
+```tsx
+import { SafeMdxRenderer } from 'safe-mdx'
+
+export function Page() {
+    const { messages } = useChat()
+    return (
+        <>
+            {messages.map((message, i) => (
+                <SafeMdxRenderer
+                    key={i}
+                    code={completeJsxTags(message.content)}
+                />
+            ))}
+        </>
+    )
+}
+```
+
 ## Security
 
 safe-mdx is designed to avoid server-side evaluation of untrusted MDX input.
@@ -202,7 +225,7 @@ This is ok if you render your MDX in isolation from each tenant, for example on 
 
 These features are not supported yet:
 
-- expressions or values defined with `export`
-- importing components or data from other files
+-   expressions or values defined with `export`
+-   importing components or data from other files
 
 To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.

@@ -13,6 +13,7 @@ import remarkGfm from 'remark-gfm'
 import remarkMdx from 'remark-mdx'
 
 import { Fragment, ReactNode } from 'react'
+import { completeJsxTags } from './streaming.js'
 
 type MyRootContent = RootContent | Root
 
@@ -1028,3 +1029,5 @@ const mdxProcessor = remark()
             file.data.ast = tree
         }
     })
+
+export { completeJsxTags }
