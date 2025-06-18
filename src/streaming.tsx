@@ -1,3 +1,5 @@
+// taken from https://www.prompt-kit.com/docs/jsx-preview
+
 function matchJsxTag(code: string) {
     if (code.trim() === '') {
         return null
