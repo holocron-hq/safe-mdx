@@ -11,6 +11,9 @@ const components = {
     Heading({ level, children }) {
         return <h1>{children}</h1>
     },
+    Cards({ level, children }) {
+        return <div>{children}</div>
+    },
 }
 
 function render(code) {
@@ -21,11 +24,14 @@ function render(code) {
     return { result, errors: visitor.errors || [], html }
 }
 import { htmlToJsx } from 'html-to-jsx-transform'
+import { completeJsxTags } from './streaming.js'
 
 test('htmlToJsx', () => {
     expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
     expect(htmlToJsx('<p>text</p>')).toMatchInlineSnapshot(`"<p>text</p>"`)
-    expect(htmlToJsx('before <p>text</p>')).toMatchInlineSnapshot(`"<>before <p>text</p></>"`)
+    expect(htmlToJsx('before <p>text</p>')).toMatchInlineSnapshot(
+        `"<>before <p>text</p></>"`,
+    )
     expect(htmlToJsx('<nonexisting>text</nonexisting>')).toMatchInlineSnapshot(
         `"<nonexisting>text</nonexisting>"`,
     )
@@ -72,6 +78,38 @@ test('markdown inside jsx', () => {
                content
             </p>
           </figure>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('can complete jsx code with completeJsxTags', () => {
+    const code = dedent`
+    # Hello
+
+    <Cards>
+    <Heading prop="value">
+    some value
+
+    Component *children*
+
+
+
+    `
+
+    expect(render(completeJsxTags(code))).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Hello</h1><div><h1></h1></div>",
+        "result": <React.Fragment>
+          <h1>
+            Hello
+          </h1>
+          <Cards>
+            <Heading
+              prop="value"
+            />
+          </Cards>
         </React.Fragment>,
       }
     `)
