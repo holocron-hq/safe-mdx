@@ -1,12 +1,12 @@
 import React, { cloneElement } from 'react'
 import { htmlToJsx } from 'html-to-jsx-transform'
-import type { Node, Parent } from 'unist'
+
 import remarkFrontmatter from 'remark-frontmatter'
 
 import { collapseWhiteSpace } from 'collapse-white-space'
 import { visit } from 'unist-util-visit'
 
-import { Root, RootContent, Yaml } from 'mdast'
+import { Root, RootContent, Node, Parent } from 'mdast'
 import { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 import { remark } from 'remark'
 import remarkGfm from 'remark-gfm'
