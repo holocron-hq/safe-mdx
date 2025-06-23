@@ -35,7 +35,7 @@ export type CustomTransformer = (
     transform: (node: MyRootContent) => ReactNode,
 ) => ReactNode | undefined
 
-export function SafeMdxRenderer({
+export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components,
     code = '',
     mdast = null as any,
@@ -54,7 +54,7 @@ export function SafeMdxRenderer({
     })
     const result = visitor.run()
     return result
-}
+})
 
 export class MdastToJsx {
     mdast: MyRootContent
