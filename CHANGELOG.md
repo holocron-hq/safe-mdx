@@ -1,5 +1,15 @@
 # safe-mdx
 
+## 0.3.0
+
+### Minor Changes
+
+-   render spans for text if hProperties is defined
+
+### Patch Changes
+
+-   Add react memo to the exported component
+
 ## 0.2.0
 
 ### Minor Changes
