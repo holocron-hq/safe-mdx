@@ -252,7 +252,7 @@ export class MdastToJsx {
                 )
             }
             case 'thematicBreak': {
-                return <this.c.hr />
+                return <this.c.hr {...node.data?.hProperties} />
             }
             case 'code': {
                 if (!node.value) {
@@ -322,6 +322,13 @@ export class MdastToJsx {
                 if (!node.value) {
                     return []
                 }
+                if (node.data?.hProperties) {
+                    return (
+                        <this.c.span {...node.data.hProperties}>
+                            {node.value}
+                        </this.c.span>
+                    )
+                }
                 return node.value
             }
             case 'image': {
@@ -378,9 +385,12 @@ export class MdastToJsx {
                 )
             }
             case 'break': {
-                return <this.c.br />
+                return <this.c.br {...node.data?.hProperties} />
             }
             case 'root': {
+                if (node.data?.hProperties) {
+                    return <this.c.div {...node.data.hProperties}>{this.mapMdastChildren(node)}</this.c.div>
+                }
                 return <Fragment>{this.mapMdastChildren(node)}</Fragment>
             }
             case 'table': {
