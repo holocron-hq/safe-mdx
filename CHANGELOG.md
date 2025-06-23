@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 0.3.1
+
+### Patch Changes
+
+-   Nicer types declaration that is extensible
+
 ## 0.3.0
 
 ### Minor Changes

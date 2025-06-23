@@ -1,12 +1,12 @@
 import React, { cloneElement } from 'react'
 import { htmlToJsx } from 'html-to-jsx-transform'
-import { Node, Parent, RootContent } from 'mdast'
+import type { Node, Parent } from 'unist'
 import remarkFrontmatter from 'remark-frontmatter'
 
 import { collapseWhiteSpace } from 'collapse-white-space'
 import { visit } from 'unist-util-visit'
 
-import { Root, Yaml } from 'mdast'
+import { Root, RootContent, Yaml } from 'mdast'
 import { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 import { remark } from 'remark'
 import remarkGfm from 'remark-gfm'
@@ -23,10 +23,11 @@ export function mdxParse(code: string) {
 }
 
 declare module 'mdast' {
+    export interface HProperties {
+        id?: string
+    }
     export interface Data {
-        hProperties?: {
-            id?: string
-        }
+        hProperties?: HProperties
     }
 }
 
@@ -389,7 +390,11 @@ export class MdastToJsx {
             }
             case 'root': {
                 if (node.data?.hProperties) {
-                    return <this.c.div {...node.data.hProperties}>{this.mapMdastChildren(node)}</this.c.div>
+                    return (
+                        <this.c.div {...node.data.hProperties}>
+                            {this.mapMdastChildren(node)}
+                        </this.c.div>
+                    )
                 }
                 return <Fragment>{this.mapMdastChildren(node)}</Fragment>
             }

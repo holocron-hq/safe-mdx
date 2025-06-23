@@ -1,6 +1,6 @@
 {
     "name": "safe-mdx",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "private": false,
     "description": "Render MDX in React without eval",
     "repository": "https://github.com/holocron-hq/safe-mdx",
