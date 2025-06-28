@@ -1,5 +1,4 @@
-import React, { cloneElement } from 'react'
-import { htmlToJsx } from 'html-to-jsx-transform'
+import React, { cloneElement, Suspense } from 'react'
 
 import remarkFrontmatter from 'remark-frontmatter'
 
@@ -15,7 +14,13 @@ import remarkMdx from 'remark-mdx'
 import { Fragment, ReactNode } from 'react'
 import { completeJsxTags } from './streaming.js'
 
-type MyRootContent = RootContent | Root
+const HtmlToJsxConverter = React.lazy(() =>
+    import('./HtmlToJsxConverter.js').then((module) => ({
+        default: module.HtmlToJsxConverter,
+    })),
+)
+
+export type MyRootContent = RootContent | Root
 
 export function mdxParse(code: string) {
     const file = mdxProcessor.processSync(code)
@@ -459,20 +464,15 @@ export class MdastToJsx {
                     return []
                 }
 
-                const jsx = htmlToJsx(text)
-                try {
-                    this.jsxStr = jsx
-                    const result = this.jsxTransformer(node)
-                    if (Array.isArray(result)) {
-                        console.log(`Unexpected array result`)
-                    } else if (result) {
-                        return result
-                    }
-                } finally {
-                    this.jsxStr = ''
-                }
-
-                return []
+                return (
+                    <Suspense fallback={null}>
+                        <HtmlToJsxConverter
+                            htmlText={text}
+                            instance={this}
+                            node={node}
+                        />
+                    </Suspense>
+                )
             }
             case 'imageReference': {
                 return []
