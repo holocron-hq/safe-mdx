@@ -2,7 +2,7 @@ import dedent from 'dedent'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { mdastBfs, MdastToJsx, mdxParse } from './safe-mdx.js'
+import { mdastBfs, MdastToJsx } from './safe-mdx.js'
 import { remark } from 'remark'
 import remarkMdx from 'remark-mdx'
 void React
@@ -25,6 +25,7 @@ function render(code) {
 }
 import { htmlToJsx } from 'html-to-jsx-transform'
 import { completeJsxTags } from './streaming.js'
+import { mdxParse } from './parse.js'
 
 test('htmlToJsx', () => {
     expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
