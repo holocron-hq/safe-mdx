@@ -1,5 +1,17 @@
 # safe-mdx
 
+## 1.0.2
+
+### Patch Changes
+
+-   Removed unsupported code language errors
+
+## 1.0.1
+
+### Patch Changes
+
+-   Mark mdast as required
+
 ## 1.0.0
 
 ### Major Changes
