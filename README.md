@@ -39,6 +39,7 @@ npm i safe-mdx
 
 ```tsx
 import { SafeMdxRenderer } from 'safe-mdx'
+import { mdxParse } from 'safe-mdx/parse'
 
 const code = `
 # Hello world
@@ -49,9 +50,11 @@ This is a paragraph
 `
 
 export function Page() {
+    const ast = mdxParse(code)
     return (
         <SafeMdxRenderer
-            code={code}
+            markdown={code}
+            mdast={ast}
             components={{
                 // You can pass your own components here
                 Heading({ children }) {
@@ -107,7 +110,7 @@ const file = parser.processSync(code)
 const mdast = file.data.ast as Root
 
 export function Page() {
-    return <SafeMdxRenderer code={code} mdast={mdast} />
+    return <SafeMdxRenderer markdown={code} mdast={mdast} />
 }
 ```
 
@@ -143,7 +146,7 @@ export function Page() {
     const parsedFrontmatter = yaml.load(yamlFrontmatter.value || '')
 
     console.log(parsedFrontmatter)
-    return <SafeMdxRenderer code={code} mdast={mdast} />
+    return <SafeMdxRenderer markdown={code} mdast={mdast} />
 }
 ```
 
@@ -151,11 +154,11 @@ export function Page() {
 
 It's not pratical to override the code block component using `code` as a component override, because it will also be used for inline code blocks. It also does not have access to meta string and language.
 
-Instead you can use `customTransformer` to return some jsx for a specific mdast node:
+Instead you can use `renderNode` to return some jsx for a specific mdast node:
 
 ```tsx
 <SafeMdxRenderer
-    customTransformer={(node, transform) => {
+    renderNode={(node, transform) => {
         if (node.type === 'code') {
             const language = node.lang || ''
             const meta = parseMetaString(node.meta)
@@ -180,7 +183,7 @@ Instead you can use `customTransformer` to return some jsx for a specific mdast 
 import { MdastToJsx } from 'safe-mdx'
 
 export function Page() {
-    const visitor = new MdastToJsx({ code, mdast, components })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components })
     const jsx = visitor.run()
 
     if (visitor.errors.length) {
@@ -188,28 +191,6 @@ export function Page() {
     }
 
     return jsx
-}
-```
-
-## Rendering streaming MDX from an LLM
-
-Use `completeJsxTags` to make streaming invalid MDX render, this function will add missing closing tags
-
-```tsx
-import { SafeMdxRenderer } from 'safe-mdx'
-
-export function Page() {
-    const { messages } = useChat()
-    return (
-        <>
-            {messages.map((message, i) => (
-                <SafeMdxRenderer
-                    key={i}
-                    code={completeJsxTags(message.content)}
-                />
-            ))}
-        </>
-    )
 }
 ```
 

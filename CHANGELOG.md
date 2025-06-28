@@ -1,5 +1,14 @@
 # safe-mdx
 
+## 1.0.0
+
+### Major Changes
+
+-   Renamed prop `code` to `markdown`.
+-   Renamed `customTransformer` prop to `renderNode`.
+-   The prop `mdast` is now always required. This makes the bundle size much smaller in the client when you already have a markdown ast, because you don't have to import mdxParse function and all its dependencies.
+-   `mdxParse` is now exported in `safe-mdx/parse` import path.
+
 ## 0.3.2
 
 ### Patch Changes

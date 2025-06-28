@@ -1,10 +1,9 @@
-import React, { cloneElement, Suspense } from 'react'
+import React, { use, cloneElement, Suspense } from 'react'
 
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 
 import { Fragment, ReactNode } from 'react'
-import { mdxParse } from './parse.js'
 import { completeJsxTags } from './streaming.js'
 
 const HtmlToJsxConverter = React.lazy(() =>
@@ -31,20 +30,20 @@ export type CustomTransformer = (
 
 export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components,
-    code = '',
+    markdown = '',
     mdast = null as any,
-    customTransformer,
+    renderNode,
 }: {
     components?: ComponentsMap
-    code?: string
+    markdown?: string
     mdast?: MyRootContent
-    customTransformer?: CustomTransformer
+    renderNode?: CustomTransformer
 }) {
     const visitor = new MdastToJsx({
-        code,
+        markdown,
         mdast,
         components,
-        customTransformer,
+        renderNode,
     })
     const result = visitor.run()
     return result
@@ -56,25 +55,27 @@ export class MdastToJsx {
     jsxStr: string = ''
     c: ComponentsMap
     errors: { message: string }[] = []
-    customTransformer?: CustomTransformer
+    renderNode?: CustomTransformer
 
     constructor({
-        code = '',
+        markdown: code = '',
         mdast = undefined as any,
         components = {} as ComponentsMap,
-        customTransformer,
+        renderNode,
     }: {
-        code?: string
-        mdast?: MyRootContent
+        markdown?: string
+        mdast: MyRootContent
         components?: ComponentsMap
-        customTransformer?: (
+        renderNode?: (
             node: MyRootContent,
             transform: (node: MyRootContent) => ReactNode,
         ) => ReactNode | undefined
     }) {
         this.str = code
-        this.mdast = mdast || mdxParse(code)
-        this.customTransformer = customTransformer
+
+        this.mdast = mdast
+
+        this.renderNode = renderNode
 
         this.c = {
             ...Object.fromEntries(
@@ -171,8 +172,8 @@ export class MdastToJsx {
         }
 
         // Check for custom transformer first, giving it higher priority
-        if (this.customTransformer) {
-            const customResult = this.customTransformer(
+        if (this.renderNode) {
+            const customResult = this.renderNode(
                 node,
                 this.mdastTransformer.bind(this),
             )
@@ -940,5 +941,3 @@ const supportedLanguagesSet = new Set(supportedLanguages)
 type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & {
     [key: string]: any
 }
-
-export { completeJsxTags }

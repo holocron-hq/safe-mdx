@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "target": "es2022",
-        "jsx": "react",
+        "jsx": "react-jsx",
         "module": "NodeNext",
         "outDir": "dist",
         "moduleResolution": "nodenext",

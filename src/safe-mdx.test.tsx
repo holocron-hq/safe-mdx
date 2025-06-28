@@ -1,11 +1,11 @@
 import dedent from 'dedent'
+import { htmlToJsx } from 'html-to-jsx-transform'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { mdastBfs, MdastToJsx } from './safe-mdx.js'
-import { remark } from 'remark'
-import remarkMdx from 'remark-mdx'
-void React
+import { mdxParse } from './parse.js'
+import { MdastToJsx, mdastBfs } from './safe-mdx.js'
+import { completeJsxTags } from './streaming.js'
 
 const components = {
     Heading({ level, children }) {
@@ -17,15 +17,13 @@ const components = {
 }
 
 function render(code) {
-    const visitor = new MdastToJsx({ code, components })
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components })
     const result = visitor.run()
     const html = renderToStaticMarkup(result)
     // console.log(JSON.stringify(result, null, 2))
     return { result, errors: visitor.errors || [], html }
 }
-import { htmlToJsx } from 'html-to-jsx-transform'
-import { completeJsxTags } from './streaming.js'
-import { mdxParse } from './parse.js'
 
 test('htmlToJsx', () => {
     expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
