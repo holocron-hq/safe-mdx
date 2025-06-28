@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 0.3.2
+
+### Patch Changes
+
+-   Use simple react for jsx
+
 ## 0.3.1
 
 ### Patch Changes
