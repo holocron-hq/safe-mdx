@@ -1,5 +1,12 @@
 # safe-mdx
 
+## 1.1.0
+
+### Minor Changes
+
+-   add support for custom `createElement`. pass a no op function to use safe-mdx as a validation step
+-   add support for `componentPropsSchema` to validate components props to a standard schema (works with Zod, Valibot, etc)
+
 ## 1.0.5
 
 ### Patch Changes

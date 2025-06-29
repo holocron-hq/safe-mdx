@@ -13,7 +13,8 @@
 -   Render MDX without `eval` on the server, so you can render MDX in Cloudflare Workers and Vercel Edge
 -   Works with React Server Components
 -   Supports custom MDX components
--   Support for rendering streaming MDX, by using `completeJsxTags`
+-   custom `createElement`. Pass a no-op function to use safe-mdx as a validation step.
+-   use `componentPropsSchema` to validate component props against a schema (works with Zod, Valibot, etc).
 -   fast. 3ms to render the [full mdx document for Zod v3](https://github.com/colinhacks/zod/blob/0a49fa39348b7c72b19ddedc3b0f879bd395304b/packages/docs/content/packages/v3.mdx) (2500 lines)
 
 ## Why
