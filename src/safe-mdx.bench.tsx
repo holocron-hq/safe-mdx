@@ -6,6 +6,21 @@ let longMdxContent = await fetch(
     'https://raw.githubusercontent.com/colinhacks/zod/0a49fa39348b7c72b19ddedc3b0f879bd395304b/packages/docs/content/packages/v3.mdx',
 ).then((x) => x.text())
 
+function Callout({ children }: { children: any }) {
+    return (
+        <div
+            style={{
+                borderLeft: '4px solid #0070f3',
+                background: '#f0f8ff',
+                padding: '8px 16px',
+                margin: '16px 0',
+            }}
+        >
+            {children}
+        </div>
+    )
+}
+
 const mdast = mdxParse(longMdxContent)
 
 describe('safe-mdx performance benchmarks', () => {
@@ -13,7 +28,7 @@ describe('safe-mdx performance benchmarks', () => {
         const visitor = new MdastToJsx({
             markdown: longMdxContent,
             mdast,
-            components: {},
+            components: { Callout },
         })
         visitor.run()
     })
@@ -23,7 +38,7 @@ describe('safe-mdx performance benchmarks', () => {
         const visitor = new MdastToJsx({
             markdown: longMdxContent,
             mdast,
-            components: {},
+            components: { Callout },
             createElement: noopCreateElement,
         })
         visitor.run()
