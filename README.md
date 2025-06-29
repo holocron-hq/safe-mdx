@@ -212,3 +212,7 @@ These features are not supported yet:
 -   importing components or data from other files
 
 To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.
+
+## Future Roadmap
+
+- add support for expression and exports via https://github.com/jonschlinkert/eval-estree-expression

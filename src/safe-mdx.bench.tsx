@@ -31,6 +31,12 @@ describe('safe-mdx performance benchmarks', () => {
             components: { Callout },
         })
         visitor.run()
+        const errors = visitor.errors
+        // export interface SafeMdxError {
+        //     message: string
+        //     line?: number
+        //     schemaPath?: string
+        // }
     })
 
     bench('MdastToJsx with noop createElement (long MDX)', () => {
