@@ -20,7 +20,7 @@ export function mdxParse(code: string) {
  * component, it is used for `# heading` but not for `<h1>heading</h1>`.
  *
  */
-function remarkMarkAndUnravel() {
+export function remarkMarkAndUnravel() {
     return function (tree: Root) {
         visit(tree, function (node, index, parent) {
             let offset = -1

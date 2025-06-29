@@ -23,7 +23,7 @@ declare module 'mdast' {
     }
 }
 
-export type CustomTransformer = (
+export type RenderNode = (
     node: MyRootContent,
     transform: (node: MyRootContent) => ReactNode,
 ) => ReactNode | undefined
@@ -37,7 +37,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components?: ComponentsMap
     markdown?: string
     mdast: MyRootContent
-    renderNode?: CustomTransformer
+    renderNode?: RenderNode
 }) {
     const visitor = new MdastToJsx({
         markdown,
@@ -55,7 +55,7 @@ export class MdastToJsx {
     jsxStr: string = ''
     c: ComponentsMap
     errors: { message: string }[] = []
-    renderNode?: CustomTransformer
+    renderNode?: RenderNode
 
     constructor({
         markdown: code = '',

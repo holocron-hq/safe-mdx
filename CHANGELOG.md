@@ -1,5 +1,17 @@
 # safe-mdx
 
+## 1.0.4
+
+### Patch Changes
+
+-   Rename CustomTransformer to RnderNode
+
+## 1.0.3
+
+### Patch Changes
+
+-   Export remarkMarkAndUnravel from /parse
+
 ## 1.0.2
 
 ### Patch Changes
