@@ -2,6 +2,7 @@ import React, { use, cloneElement, Suspense } from 'react'
 
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import { Fragment, ReactNode } from 'react'
 import { completeJsxTags } from './streaming.js'
@@ -28,22 +29,33 @@ export type RenderNode = (
     transform: (node: MyRootContent) => ReactNode,
 ) => ReactNode | undefined
 
+export interface SafeMdxError {
+    message: string
+    line?: number
+    schemaPath?: string
+}
+
+export type ComponentPropsSchema = Record<string, StandardSchemaV1>
+
 export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components,
     markdown = '',
     mdast = null as any,
     renderNode,
+    componentPropsSchema,
 }: {
     components?: ComponentsMap
     markdown?: string
     mdast: MyRootContent
     renderNode?: RenderNode
+    componentPropsSchema?: ComponentPropsSchema
 }) {
     const visitor = new MdastToJsx({
         markdown,
         mdast,
         components,
         renderNode,
+        componentPropsSchema,
     })
     const result = visitor.run()
     return result
@@ -54,14 +66,16 @@ export class MdastToJsx {
     str: string
     jsxStr: string = ''
     c: ComponentsMap
-    errors: { message: string; line?: number }[] = []
+    errors: SafeMdxError[] = []
     renderNode?: RenderNode
+    componentPropsSchema?: ComponentPropsSchema
 
     constructor({
         markdown: code = '',
         mdast,
         components = {} as ComponentsMap,
         renderNode,
+        componentPropsSchema,
     }: {
         markdown?: string
         mdast: MyRootContent
@@ -70,12 +84,15 @@ export class MdastToJsx {
             node: MyRootContent,
             transform: (node: MyRootContent) => ReactNode,
         ) => ReactNode | undefined
+        componentPropsSchema?: ComponentPropsSchema
     }) {
         this.str = code
 
         this.mdast = mdast
 
         this.renderNode = renderNode
+
+        this.componentPropsSchema = componentPropsSchema
 
         this.c = {
             ...Object.fromEntries(
@@ -86,6 +103,36 @@ export class MdastToJsx {
             ...components,
         }
     }
+
+    validateComponentProps(
+        componentName: string,
+        props: Record<string, any>,
+        line?: number
+    ): void {
+        if (!this.componentPropsSchema || !this.componentPropsSchema[componentName]) {
+            return
+        }
+
+        const schema = this.componentPropsSchema[componentName]
+        let result = schema['~standard'].validate(props)
+
+        if (result instanceof Promise) {
+            // Ignore async validation errors as requested
+            return
+        } else {
+            if (result.issues) {
+                result.issues.forEach((issue) => {
+                    const propPath = issue.path?.join('.') || 'unknown'
+                    this.errors.push({
+                        message: `Invalid props for component "${componentName}" at "${propPath}": ${issue.message}`,
+                        line,
+                        schemaPath: issue.path?.join('.'),
+                    })
+                })
+            }
+        }
+    }
+
     mapMdastChildren(node: any) {
         const res = node.children
             ?.flatMap((child) => this.mdastTransformer(child))
@@ -147,6 +194,10 @@ export class MdastToJsx {
                 })
 
                 let attrs = Object.fromEntries(attrsList)
+
+                // Validate component props with schema if available
+                this.validateComponentProps(node.name, attrs, node.position?.start?.line)
+
                 return (
                     <Component {...attrs}>
                         {this.mapJsxChildren(node)}
@@ -474,7 +525,7 @@ export class MdastToJsx {
 
 export function getJsxAttrs(
     node: MdxJsxFlowElement | MdxJsxTextElement,
-    onError: (err: { message: string; line?: number }) => void = console.error,
+    onError: (err: SafeMdxError) => void = console.error,
 ) {
     let attrsList = node.attributes
         .map((attr) => {

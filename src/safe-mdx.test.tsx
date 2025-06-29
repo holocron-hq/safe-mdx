@@ -3,8 +3,9 @@ import { htmlToJsx } from 'html-to-jsx-transform'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
+import { z } from 'zod'
 import { mdxParse } from './parse.js'
-import { MdastToJsx, mdastBfs } from './safe-mdx.js'
+import { MdastToJsx, mdastBfs, type ComponentPropsSchema } from './safe-mdx.js'
 import { completeJsxTags } from './streaming.js'
 
 const components = {
@@ -16,9 +17,9 @@ const components = {
     },
 }
 
-function render(code) {
+function render(code, componentPropsSchema?: ComponentPropsSchema) {
     const mdast = mdxParse(code)
-    const visitor = new MdastToJsx({ markdown: code, mdast, components })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema })
     const result = visitor.run()
     const html = renderToStaticMarkup(result)
     // console.log(JSON.stringify(result, null, 2))
@@ -2291,5 +2292,208 @@ _No documentation_
           </em>
         </p>
       </React.Fragment>
+    `)
+})
+
+test('component props schema validation with zod', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+        title: z.string().optional(),
+    })
+
+    const CardsSchema = z.object({
+        count: z.number().positive(),
+        variant: z.enum(['default', 'outline']).optional(),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+        Cards: CardsSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2} title="test">Valid heading</Heading>
+        
+        <Cards count={3} variant="outline">Valid cards</Cards>
+        
+        <Heading level={10} title="test">Invalid heading - level too high</Heading>
+        
+        <Cards count={-1}>Invalid cards - negative count</Cards>
+        
+        <Cards count="not a number">Invalid cards - wrong type</Cards>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 5,
+            "message": "Invalid props for component "Heading" at "level": Number must be less than or equal to 6",
+            "schemaPath": "level",
+          },
+          {
+            "line": 7,
+            "message": "Invalid props for component "Cards" at "count": Number must be greater than 0",
+            "schemaPath": "count",
+          },
+          {
+            "line": 9,
+            "message": "Invalid props for component "Cards" at "count": Expected number, received string",
+            "schemaPath": "count",
+          },
+        ],
+        "html": "<h1>Valid heading</h1><div>Valid cards</div><h1>Invalid heading - level too high</h1><div>Invalid cards - negative count</div><div>Invalid cards - wrong type</div>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            Valid heading
+          </Heading>
+          <Cards
+            count={3}
+            variant="outline"
+          >
+            Valid cards
+          </Cards>
+          <Heading
+            level={10}
+            title="test"
+          >
+            Invalid heading - level too high
+          </Heading>
+          <Cards
+            count={-1}
+          >
+            Invalid cards - negative count
+          </Cards>
+          <Cards
+            count="not a number"
+          >
+            Invalid cards - wrong type
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('schema validation without errors', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+        title: z.string().optional(),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2} title="test">Valid heading</Heading>
+        <Heading level={1}>Another valid heading</Heading>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Valid heading</h1><h1>Another valid heading</h1>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            Valid heading
+          </Heading>
+          <Heading
+            level={1}
+          >
+            Another valid heading
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('component without schema should not be validated', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2}>Valid heading with schema</Heading>
+        <Cards invalidProp="anything">Cards without schema - should not be validated</Cards>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Valid heading with schema</h1><div>Cards without schema - should not be validated</div>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+          >
+            Valid heading with schema
+          </Heading>
+          <Cards
+            invalidProp="anything"
+          >
+            Cards without schema - should not be validated
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('validation error includes schema path', () => {
+    const ComplexSchema = z.object({
+        user: z.object({
+            name: z.string(),
+            age: z.number().min(0),
+        }),
+        settings: z.object({
+            theme: z.enum(['light', 'dark']),
+        }),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: ComplexSchema,
+    }
+
+    const code = dedent`
+        <Heading user={{ name: "test", age: -1 }} settings={{ theme: "invalid" }}>Complex validation</Heading>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 1,
+            "message": "Expressions in jsx props are not supported (user={{ name: "test", age: -1 }})",
+          },
+          {
+            "line": 1,
+            "message": "Expressions in jsx props are not supported (settings={{ theme: "invalid" }})",
+          },
+          {
+            "line": 1,
+            "message": "Invalid props for component "Heading" at "user": Required",
+            "schemaPath": "user",
+          },
+          {
+            "line": 1,
+            "message": "Invalid props for component "Heading" at "settings": Required",
+            "schemaPath": "settings",
+          },
+        ],
+        "html": "<h1>Complex validation</h1>",
+        "result": <React.Fragment>
+          <Heading>
+            Complex validation
+          </Heading>
+        </React.Fragment>,
+      }
     `)
 })
