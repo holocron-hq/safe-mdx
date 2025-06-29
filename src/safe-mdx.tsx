@@ -37,18 +37,26 @@ export interface SafeMdxError {
 
 export type ComponentPropsSchema = Record<string, StandardSchemaV1>
 
+export type CreateElementFunction = (
+    type: any,
+    props?: any,
+    ...children: ReactNode[]
+) => ReactNode
+
 export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components,
     markdown = '',
     mdast = null as any,
     renderNode,
     componentPropsSchema,
+    createElement,
 }: {
     components?: ComponentsMap
     markdown?: string
     mdast: MyRootContent
     renderNode?: RenderNode
     componentPropsSchema?: ComponentPropsSchema
+    createElement?: CreateElementFunction
 }) {
     const visitor = new MdastToJsx({
         markdown,
@@ -56,6 +64,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
         components,
         renderNode,
         componentPropsSchema,
+        createElement,
     })
     const result = visitor.run()
     return result
@@ -69,6 +78,7 @@ export class MdastToJsx {
     errors: SafeMdxError[] = []
     renderNode?: RenderNode
     componentPropsSchema?: ComponentPropsSchema
+    createElement: CreateElementFunction
 
     constructor({
         markdown: code = '',
@@ -76,6 +86,7 @@ export class MdastToJsx {
         components = {} as ComponentsMap,
         renderNode,
         componentPropsSchema,
+        createElement = React.createElement,
     }: {
         markdown?: string
         mdast: MyRootContent
@@ -85,6 +96,7 @@ export class MdastToJsx {
             transform: (node: MyRootContent) => ReactNode,
         ) => ReactNode | undefined
         componentPropsSchema?: ComponentPropsSchema
+        createElement?: CreateElementFunction
     }) {
         this.str = code
 
@@ -93,6 +105,8 @@ export class MdastToJsx {
         this.renderNode = renderNode
 
         this.componentPropsSchema = componentPropsSchema
+
+        this.createElement = createElement
 
         this.c = {
             ...Object.fromEntries(
@@ -198,11 +212,7 @@ export class MdastToJsx {
                 // Validate component props with schema if available
                 this.validateComponentProps(node.name, attrs, node.position?.start?.line)
 
-                return (
-                    <Component {...attrs}>
-                        {this.mapJsxChildren(node)}
-                    </Component>
-                )
+                return this.createElement(Component, attrs, this.mapJsxChildren(node))
             }
             default: {
                 return this.mdastTransformer(node)
@@ -278,28 +288,16 @@ export class MdastToJsx {
                 const level = node.depth
                 const Tag = this.c[`h${level}`] ?? `h${level}`
 
-                return (
-                    <Tag {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </Tag>
-                )
+                return this.createElement(Tag, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'paragraph': {
-                return (
-                    <this.c.p {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.p>
-                )
+                return this.createElement(this.c.p, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'blockquote': {
-                return (
-                    <this.c.blockquote {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.blockquote>
-                )
+                return this.createElement(this.c.blockquote, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'thematicBreak': {
-                return <this.c.hr {...node.data?.hProperties} />
+                return this.createElement(this.c.hr, node.data?.hProperties)
             }
             case 'code': {
                 if (!node.value) {
@@ -307,10 +305,10 @@ export class MdastToJsx {
                 }
                 const language = node.lang || ''
                 const code = node.value
-                const codeBlock = (className?: string) => (
-                    <this.c.pre {...node.data?.hProperties}>
-                        <this.c.code className={className}>{code}</this.c.code>
-                    </this.c.pre>
+                const codeBlock = (className?: string) => this.createElement(
+                    this.c.pre,
+                    node.data?.hProperties,
+                    this.createElement(this.c.code, { className }, code)
                 )
 
                 if (language) {
@@ -321,49 +319,31 @@ export class MdastToJsx {
 
             case 'list': {
                 if (node.ordered) {
-                    return (
-                        <this.c.ol
-                            start={node.start!}
-                            {...node.data?.hProperties}
-                        >
-                            {this.mapMdastChildren(node)}
-                        </this.c.ol>
+                    return this.createElement(
+                        this.c.ol,
+                        { start: node.start!, ...node.data?.hProperties },
+                        this.mapMdastChildren(node)
                     )
                 }
-                return (
-                    <this.c.ul {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.ul>
-                )
+                return this.createElement(this.c.ul, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'listItem': {
                 // https://github.com/syntax-tree/mdast-util-gfm-task-list-item#syntax-tree
                 if (node?.checked != null) {
-                    return (
-                        <this.c.li
-                            data-checked={node.checked}
-                            {...node.data?.hProperties}
-                        >
-                            {this.mapMdastChildren(node)}
-                        </this.c.li>
+                    return this.createElement(
+                        this.c.li,
+                        { 'data-checked': node.checked, ...node.data?.hProperties },
+                        this.mapMdastChildren(node)
                     )
                 }
-                return (
-                    <this.c.li {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.li>
-                )
+                return this.createElement(this.c.li, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'text': {
                 if (!node.value) {
                     return []
                 }
                 if (node.data?.hProperties) {
-                    return (
-                        <this.c.span {...node.data.hProperties}>
-                            {node.value}
-                        </this.c.span>
-                    )
+                    return this.createElement(this.c.span, node.data.hProperties, node.value)
                 }
                 return node.value
             }
@@ -371,92 +351,70 @@ export class MdastToJsx {
                 const src = node.url || ''
                 const alt = node.alt || ''
                 const title = node.title || ''
-                return (
-                    <this.c.img
-                        src={src}
-                        alt={alt}
-                        title={title}
-                        {...node.data?.hProperties}
-                    />
-                )
+                return this.createElement(this.c.img, {
+                    src,
+                    alt,
+                    title,
+                    ...node.data?.hProperties
+                })
             }
             case 'link': {
                 const href = node.url || ''
                 const title = node.title || ''
-                return (
-                    <this.c.a {...{ href, title }} {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.a>
+                return this.createElement(
+                    this.c.a,
+                    { href, title, ...node.data?.hProperties },
+                    this.mapMdastChildren(node)
                 )
             }
             case 'strong': {
-                return (
-                    <this.c.strong {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.strong>
-                )
+                return this.createElement(this.c.strong, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'emphasis': {
-                return (
-                    <this.c.em {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.em>
-                )
+                return this.createElement(this.c.em, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'delete': {
-                return (
-                    <this.c.del {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.del>
-                )
+                return this.createElement(this.c.del, node.data?.hProperties, this.mapMdastChildren(node))
             }
             case 'inlineCode': {
                 if (!node.value) {
                     return []
                 }
-                return (
-                    <this.c.code {...node.data?.hProperties}>
-                        {node.value}
-                    </this.c.code>
-                )
+                return this.createElement(this.c.code, node.data?.hProperties, node.value)
             }
             case 'break': {
-                return <this.c.br {...node.data?.hProperties} />
+                return this.createElement(this.c.br, node.data?.hProperties)
             }
             case 'root': {
                 if (node.data?.hProperties) {
-                    return (
-                        <this.c.div {...node.data.hProperties}>
-                            {this.mapMdastChildren(node)}
-                        </this.c.div>
-                    )
+                    return this.createElement(this.c.div, node.data.hProperties, this.mapMdastChildren(node))
                 }
-                return <Fragment>{this.mapMdastChildren(node)}</Fragment>
+                return this.createElement(Fragment, null, this.mapMdastChildren(node))
             }
             case 'table': {
                 const [head, ...body] = React.Children.toArray(
                     this.mapMdastChildren(node),
                 )
-                return (
-                    <this.c.table {...node.data?.hProperties}>
-                        {head && <this.c.thead>{head}</this.c.thead>}
-                        {!!body?.length && <this.c.tbody>{body}</this.c.tbody>}
-                    </this.c.table>
+                return this.createElement(
+                    this.c.table,
+                    node.data?.hProperties,
+                    head && this.createElement(this.c.thead, null, head),
+                    !!body?.length && this.createElement(this.c.tbody, null, body)
                 )
             }
             case 'tableRow': {
-                return (
-                    <this.c.tr className='' {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.tr>
+                return this.createElement(
+                    this.c.tr,
+                    { className: '', ...node.data?.hProperties },
+                    this.mapMdastChildren(node)
                 )
             }
             case 'tableCell': {
                 let content = this.mapMdastChildren(node)
-                return (
-                    <this.c.td className='' {...node.data?.hProperties}>
-                        {content}
-                    </this.c.td>
+                return this.createElement(
+                    this.c.td,
+                    { className: '', ...node.data?.hProperties },
+                    content
                 )
             }
             case 'definition': {
@@ -473,10 +431,10 @@ export class MdastToJsx {
                     }
                 })
 
-                return (
-                    <this.c.a href={href} {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.a>
+                return this.createElement(
+                    this.c.a,
+                    { href, ...node.data?.hProperties },
+                    this.mapMdastChildren(node)
                 )
             }
             case 'footnoteReference': {
@@ -494,14 +452,14 @@ export class MdastToJsx {
                     return []
                 }
 
-                return (
-                    <Suspense fallback={null}>
-                        <HtmlToJsxConverter
-                            htmlText={text}
-                            instance={this}
-                            node={node}
-                        />
-                    </Suspense>
+                return this.createElement(
+                    Suspense,
+                    { fallback: null },
+                    this.createElement(HtmlToJsxConverter, {
+                        htmlText: text,
+                        instance: this,
+                        node
+                    })
                 )
             }
             case 'imageReference': {
