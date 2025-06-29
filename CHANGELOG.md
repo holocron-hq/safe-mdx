@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 1.0.5
+
+### Patch Changes
+
+-   add line numbers to errors
+
 ## 1.0.4
 
 ### Patch Changes

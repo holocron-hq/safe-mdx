@@ -54,7 +54,7 @@ export class MdastToJsx {
     str: string
     jsxStr: string = ''
     c: ComponentsMap
-    errors: { message: string }[] = []
+    errors: { message: string; line?: number }[] = []
     renderNode?: RenderNode
 
     constructor({
@@ -137,6 +137,7 @@ export class MdastToJsx {
                 if (!Component) {
                     this.errors.push({
                         message: `Unsupported jsx component ${node.name}`,
+                        line: node.position?.start?.line,
                     })
                     return null
                 }
@@ -473,15 +474,17 @@ export class MdastToJsx {
 
 export function getJsxAttrs(
     node: MdxJsxFlowElement | MdxJsxTextElement,
-    onError: (err: { message: string }) => void = console.error,
+    onError: (err: { message: string; line?: number }) => void = console.error,
 ) {
     let attrsList = node.attributes
         .map((attr) => {
             if (attr.type === 'mdxJsxExpressionAttribute') {
+
                 onError({
                     message: `Expressions in jsx props are not supported (${attr.value
                         .replace(/\n+/g, ' ')
                         .replace(/ +/g, ' ')})`,
+                    line: attr.position?.start?.line,
                 })
                 return
             }
@@ -531,6 +534,7 @@ export function getJsxAttrs(
 
                 onError({
                     message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
+                    line: attr.position?.start?.line,
                 })
             } else {
                 console.log('unhandled attr', { attr }, attr.type)

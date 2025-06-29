@@ -474,6 +474,7 @@ test('missing components are ignored', () => {
       {
         "errors": [
           {
+            "line": 1,
             "message": "Unsupported jsx component MissingComponent",
           },
         ],
@@ -510,15 +511,19 @@ test('props parsing', () => {
       {
         "errors": [
           {
+            "line": 7,
             "message": "Expressions in jsx props are not supported (expression1={1 + 3})",
           },
           {
+            "line": 8,
             "message": "Expressions in jsx props are not supported (expression2={Boolean(1)})",
           },
           {
+            "line": 9,
             "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
           },
           {
+            "line": 13,
             "message": "Expressions in jsx props are not supported (...{ spread: true })",
           },
         ],
