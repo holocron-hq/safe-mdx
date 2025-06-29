@@ -1,11 +1,10 @@
-import React, { use, cloneElement, Suspense } from 'react'
+import React, { Suspense, cloneElement } from 'react'
 
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
-import type { StandardSchemaV1 } from '@standard-schema/spec'
 
 import { Fragment, ReactNode } from 'react'
-import { completeJsxTags } from './streaming.js'
 
 const HtmlToJsxConverter = React.lazy(() =>
     import('./HtmlToJsxConverter.js').then((module) => ({
