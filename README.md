@@ -215,4 +215,5 @@ To overcome these limitations you can define custom logic in your components and
 
 ## Future Roadmap
 
-- add support for expression and exports via https://github.com/jonschlinkert/eval-estree-expression
+-   add support for expression and exports via https://github.com/jonschlinkert/eval-estree-expression
+-   add support for scope parameter to allow referencing variables in expressions and code
