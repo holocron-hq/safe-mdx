@@ -533,10 +533,6 @@ test('props parsing', () => {
             "line": 9,
             "message": "Expressions in jsx prop not evaluated: (jsx={<SomeComponent />})",
           },
-          {
-            "line": 13,
-            "message": "Expressions in jsx props are not supported (...{ spread: true })",
-          },
         ],
         "html": "<h1><p>hi</p></h1>",
         "result": <React.Fragment>
@@ -553,6 +549,7 @@ test('props parsing', () => {
                 "a": 1,
               }
             }
+            spread={true}
           >
             <p>
               hi
@@ -2712,6 +2709,150 @@ test('validation error includes schema path', () => {
             }
           >
             Complex validation
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute spread syntax', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            {...{key: '1', level: 2}}
+            title="test"
+        >
+        Content with spread
+        </Heading>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1><p>Content with spread</p></h1>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            <p>
+              Content with spread
+            </p>
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute complex spread cases', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            {...{
+                level: 3,
+                active: true,
+                disabled: false,
+                count: 42,
+                title: "spread title",
+                nested: {
+                    prop: "value"
+                }
+            }}
+        >
+        Complex spread test
+        </Heading>
+
+        <Cards 
+            {...{style: {color: "red", fontSize: "16px"}}}
+            {...{className: "test-class", id: "test-id"}}
+        >
+        Multiple spreads
+        </Cards>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1><p>Complex spread test</p></h1><div><p>Multiple spreads</p></div>",
+        "result": <React.Fragment>
+          <Heading
+            active={true}
+            count={42}
+            disabled={false}
+            level={3}
+            nested={
+              {
+                "prop": "value",
+              }
+            }
+            title="spread title"
+          >
+            <p>
+              Complex spread test
+            </p>
+          </Heading>
+          <Cards
+            className="test-class"
+            id="test-id"
+            style={
+              {
+                "color": "red",
+                "fontSize": "16px",
+              }
+            }
+          >
+            <p>
+              Multiple spreads
+            </p>
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute edge cases', () => {
+    expect(
+        render(dedent`
+        <Heading {...{}} title="empty spread">Empty spread</Heading>
+        
+        <Heading {...{null: null, undefined: undefined}} title="null/undefined values">Null/undefined</Heading>
+        
+        <Heading {...{array: [1, 2, 3], object: {nested: true}}} title="complex values">Complex types</Heading>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 3,
+            "message": "Failed to evaluate expression attribute: ...{null: null, undefined: undefined}",
+          },
+        ],
+        "html": "<h1>Empty spread</h1><h1>Null/undefined</h1><h1>Complex types</h1>",
+        "result": <React.Fragment>
+          <Heading
+            title="empty spread"
+          >
+            Empty spread
+          </Heading>
+          <Heading
+            title="null/undefined values"
+          >
+            Null/undefined
+          </Heading>
+          <Heading
+            array={
+              [
+                1,
+                2,
+                3,
+              ]
+            }
+            object={
+              {
+                "nested": true,
+              }
+            }
+            title="complex values"
+          >
+            Complex types
           </Heading>
         </React.Fragment>,
       }

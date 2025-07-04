@@ -235,72 +235,107 @@ export class MdastToJsx {
         node: MdxJsxFlowElement | MdxJsxTextElement,
         onError: (err: SafeMdxError) => void = console.error,
     ) {
-        let attrsList = node.attributes
-            .map((attr) => {
-                if (attr.type === 'mdxJsxExpressionAttribute') {
+        let attrsList: [string, any][] = []
+
+        for (const attr of node.attributes) {
+            if (attr.type === 'mdxJsxExpressionAttribute') {
+                // Handle spread expressions like {...{key: '1'}}
+                if (attr.data?.estree) {
+                    try {
+                        const program = attr.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            const result = Evaluate.evaluate.sync(expression)
+
+                            // Handle spread syntax - merge the evaluated object
+                            if (typeof result === 'object' && result != null) {
+                                const entries = Object.entries(result)
+                                attrsList.push(...entries)
+                            }
+                        }
+                    } catch (error) {
+                        onError({
+                            message: `Failed to evaluate expression attribute: ${attr.value
+                                .replace(/\n+/g, ' ')
+                                .replace(/ +/g, ' ')}`,
+                            line: attr.position?.start?.line,
+                        })
+                    }
+                } else {
                     onError({
                         message: `Expressions in jsx props are not supported (${attr.value
                             .replace(/\n+/g, ' ')
                             .replace(/ +/g, ' ')})`,
                         line: attr.position?.start?.line,
                     })
-                    return
                 }
-                if (attr.type !== 'mdxJsxAttribute') {
-                    throw new Error(`non mdxJsxAttribute is not supported: ${attr}`)
+                continue
+            }
+
+            if (attr.type !== 'mdxJsxAttribute') {
+                onError({
+                    message: `non mdxJsxAttribute attribute is not supported: ${attr}`,
+                    line: node.position?.start?.line,
+                })
+                continue
+            }
+
+            const v = attr.value
+            if (typeof v === 'string' || typeof v === 'number') {
+                attrsList.push([attr.name, v])
+                continue
+            }
+            if (v === null) {
+                attrsList.push([attr.name, true])
+                continue
+            }
+            if (v?.type === 'mdxJsxAttributeValueExpression') {
+                // Manual parsing fallback for simple values
+                if (v.value === 'true') {
+                    attrsList.push([attr.name, true])
+                    continue
+                }
+                if (v.value === 'false') {
+                    attrsList.push([attr.name, false])
+                    continue
+                }
+                if (v.value === 'null') {
+                    attrsList.push([attr.name, null])
+                    continue
+                }
+                if (v.value === 'undefined') {
+                    attrsList.push([attr.name, undefined])
+                    continue
                 }
 
-                const v = attr.value
-                if (typeof v === 'string' || typeof v === 'number') {
-                    return [attr.name, v]
-                }
-                if (v === null) {
-                    return [attr.name, true]
-                }
-                if (v?.type === 'mdxJsxAttributeValueExpression') {
-                    // Manual parsing fallback for simple values
-                    if (v.value === 'true') {
-                        return [attr.name, true]
-                    }
-                    if (v.value === 'false') {
-                        return [attr.name, false]
-                    }
-                    if (v.value === 'null') {
-                        return [attr.name, null]
-                    }
-                    if (v.value === 'undefined') {
-                        return [attr.name, undefined]
-                    }
-
-                    if (v.data?.estree) {
-                        try {
-                            // Extract the expression from the Program body
-                            const program = v.data.estree
-                            if (
-                                program.body?.length > 0 &&
-                                program.body[0].type === 'ExpressionStatement'
-                            ) {
-                                const expression = program.body[0].expression
-                                // Evaluate the expression synchronously
-                                const result = Evaluate.evaluate.sync(expression)
-                                return [attr.name, result]
-                            }
-                        } catch (error) {
-                            // Fall back to the original manual parsing for backwards compatibility
+                if (v.data?.estree) {
+                    try {
+                        // Extract the expression from the Program body
+                        const program = v.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            // Evaluate the expression synchronously
+                            const result = Evaluate.evaluate.sync(expression)
+                            attrsList.push([attr.name, result])
+                            continue
                         }
+                    } catch (error) {
+                        // Fall back to the original manual parsing for backwards compatibility
                     }
-
-                    onError({
-                        message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
-                        line: attr.position?.start?.line,
-                    })
-                } else {
-                    console.log('unhandled attr', { attr }, attr.type)
                 }
 
-                return
-            })
-            .filter(isTruthy) as [string, any][]
+                onError({
+                    message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
+                    line: attr.position?.start?.line,
+                })
+            }
+        }
         return attrsList
     }
 
@@ -642,7 +677,6 @@ export class MdastToJsx {
         }
     }
 }
-
 
 function isTruthy<T>(val: T | undefined | null | false): val is T {
     return Boolean(val)
