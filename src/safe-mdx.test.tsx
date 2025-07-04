@@ -527,7 +527,15 @@ test('props parsing', () => {
         "errors": [
           {
             "line": 8,
+            "message": "Failed to evaluate expression attribute: expression2={Boolean(1)}",
+          },
+          {
+            "line": 8,
             "message": "Expressions in jsx prop not evaluated: (expression2={Boolean(1)})",
+          },
+          {
+            "line": 9,
+            "message": "Failed to evaluate expression attribute: jsx={<SomeComponent />}",
           },
           {
             "line": 9,

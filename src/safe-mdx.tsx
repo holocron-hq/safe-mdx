@@ -248,12 +248,21 @@ export class MdastToJsx {
                             program.body[0].type === 'ExpressionStatement'
                         ) {
                             const expression = program.body[0].expression
-                            const result = Evaluate.evaluate.sync(expression)
+                            try {
+                                const result = Evaluate.evaluate.sync(expression)
 
-                            // Handle spread syntax - merge the evaluated object
-                            if (typeof result === 'object' && result != null) {
-                                const entries = Object.entries(result)
-                                attrsList.push(...entries)
+                                // Handle spread syntax - merge the evaluated object
+                                if (typeof result === 'object' && result != null) {
+                                    const entries = Object.entries(result)
+                                    attrsList.push(...entries)
+                                }
+                            } catch (error) {
+                                onError({
+                                    message: `Failed to evaluate expression attribute: ${attr.value
+                                        .replace(/\n+/g, ' ')
+                                        .replace(/ +/g, ' ')}`,
+                                    line: attr.position?.start?.line,
+                                })
                             }
                         }
                     } catch (error) {
@@ -320,10 +329,17 @@ export class MdastToJsx {
                             program.body[0].type === 'ExpressionStatement'
                         ) {
                             const expression = program.body[0].expression
-                            // Evaluate the expression synchronously
-                            const result = Evaluate.evaluate.sync(expression)
-                            attrsList.push([attr.name, result])
-                            continue
+                            try {
+                                // Evaluate the expression synchronously
+                                const result = Evaluate.evaluate.sync(expression)
+                                attrsList.push([attr.name, result])
+                                continue
+                            } catch (error) {
+                                onError({
+                                    message: `Failed to evaluate expression attribute: ${attr.name}={${v.value}}`,
+                                    line: attr.position?.start?.line,
+                                })
+                            }
                         }
                     } catch (error) {
                         // Fall back to the original manual parsing for backwards compatibility
@@ -406,9 +422,16 @@ export class MdastToJsx {
                             program.body[0].type === 'ExpressionStatement'
                         ) {
                             const expression = program.body[0].expression
-                            // Evaluate the expression synchronously
-                            const result = Evaluate.evaluate.sync(expression)
-                            return result
+                            try {
+                                // Evaluate the expression synchronously
+                                const result = Evaluate.evaluate.sync(expression)
+                                return result
+                            } catch (error) {
+                                this.errors.push({
+                                    message: `Failed to evaluate expression: ${node.value}`,
+                                    line: node.position?.start?.line,
+                                })
+                            }
                         }
                     } catch (error) {
                         this.errors.push({
