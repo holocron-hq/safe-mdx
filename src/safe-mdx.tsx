@@ -206,7 +206,7 @@ export class MdastToJsx {
                     return null
                 }
 
-                let attrsList = getJsxAttrs(node, (err) => {
+                let attrsList = this.getJsxAttrs(node, (err) => {
                     this.errors.push(err)
                 })
 
@@ -229,6 +229,79 @@ export class MdastToJsx {
                 return this.mdastTransformer(node)
             }
         }
+    }
+
+    getJsxAttrs(
+        node: MdxJsxFlowElement | MdxJsxTextElement,
+        onError: (err: SafeMdxError) => void = console.error,
+    ) {
+        let attrsList = node.attributes
+            .map((attr) => {
+                if (attr.type === 'mdxJsxExpressionAttribute') {
+                    onError({
+                        message: `Expressions in jsx props are not supported (${attr.value
+                            .replace(/\n+/g, ' ')
+                            .replace(/ +/g, ' ')})`,
+                        line: attr.position?.start?.line,
+                    })
+                    return
+                }
+                if (attr.type !== 'mdxJsxAttribute') {
+                    throw new Error(`non mdxJsxAttribute is not supported: ${attr}`)
+                }
+
+                const v = attr.value
+                if (typeof v === 'string' || typeof v === 'number') {
+                    return [attr.name, v]
+                }
+                if (v === null) {
+                    return [attr.name, true]
+                }
+                if (v?.type === 'mdxJsxAttributeValueExpression') {
+                    // Manual parsing fallback for simple values
+                    if (v.value === 'true') {
+                        return [attr.name, true]
+                    }
+                    if (v.value === 'false') {
+                        return [attr.name, false]
+                    }
+                    if (v.value === 'null') {
+                        return [attr.name, null]
+                    }
+                    if (v.value === 'undefined') {
+                        return [attr.name, undefined]
+                    }
+
+                    if (v.data?.estree) {
+                        try {
+                            // Extract the expression from the Program body
+                            const program = v.data.estree
+                            if (
+                                program.body?.length > 0 &&
+                                program.body[0].type === 'ExpressionStatement'
+                            ) {
+                                const expression = program.body[0].expression
+                                // Evaluate the expression synchronously
+                                const result = Evaluate.evaluate.sync(expression)
+                                return [attr.name, result]
+                            }
+                        } catch (error) {
+                            // Fall back to the original manual parsing for backwards compatibility
+                        }
+                    }
+
+                    onError({
+                        message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
+                        line: attr.position?.start?.line,
+                    })
+                } else {
+                    console.log('unhandled attr', { attr }, attr.type)
+                }
+
+                return
+            })
+            .filter(isTruthy) as [string, any][]
+        return attrsList
     }
 
     run() {
@@ -570,78 +643,6 @@ export class MdastToJsx {
     }
 }
 
-export function getJsxAttrs(
-    node: MdxJsxFlowElement | MdxJsxTextElement,
-    onError: (err: SafeMdxError) => void = console.error,
-) {
-    let attrsList = node.attributes
-        .map((attr) => {
-            if (attr.type === 'mdxJsxExpressionAttribute') {
-                onError({
-                    message: `Expressions in jsx props are not supported (${attr.value
-                        .replace(/\n+/g, ' ')
-                        .replace(/ +/g, ' ')})`,
-                    line: attr.position?.start?.line,
-                })
-                return
-            }
-            if (attr.type !== 'mdxJsxAttribute') {
-                throw new Error(`non mdxJsxAttribute is not supported: ${attr}`)
-            }
-
-            const v = attr.value
-            if (typeof v === 'string' || typeof v === 'number') {
-                return [attr.name, v]
-            }
-            if (v === null) {
-                return [attr.name, true]
-            }
-            if (v?.type === 'mdxJsxAttributeValueExpression') {
-                // Manual parsing fallback for simple values
-                if (v.value === 'true') {
-                    return [attr.name, true]
-                }
-                if (v.value === 'false') {
-                    return [attr.name, false]
-                }
-                if (v.value === 'null') {
-                    return [attr.name, null]
-                }
-                if (v.value === 'undefined') {
-                    return [attr.name, undefined]
-                }
-
-                if (v.data?.estree) {
-                    try {
-                        // Extract the expression from the Program body
-                        const program = v.data.estree
-                        if (
-                            program.body?.length > 0 &&
-                            program.body[0].type === 'ExpressionStatement'
-                        ) {
-                            const expression = program.body[0].expression
-                            // Evaluate the expression synchronously
-                            const result = Evaluate.evaluate.sync(expression)
-                            return [attr.name, result]
-                        }
-                    } catch (error) {
-                        // Fall back to the original manual parsing for backwards compatibility
-                    }
-                }
-
-                onError({
-                    message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
-                    line: attr.position?.start?.line,
-                })
-            } else {
-                console.log('unhandled attr', { attr }, attr.type)
-            }
-
-            return
-        })
-        .filter(isTruthy) as [string, any][]
-    return attrsList
-}
 
 function isTruthy<T>(val: T | undefined | null | false): val is T {
     return Boolean(val)
