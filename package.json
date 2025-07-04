@@ -38,6 +38,7 @@
     "dependencies": {
         "@standard-schema/spec": "^1.0.0",
         "collapse-white-space": "^2.1.0",
+        "eval-estree-expression": "^3.0.0",
         "html-to-jsx-transform": "^1.0.0",
         "remark": "^15.0.1",
         "remark-frontmatter": "^5.0.0",

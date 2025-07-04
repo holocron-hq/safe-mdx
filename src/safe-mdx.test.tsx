@@ -37,6 +37,20 @@ test('htmlToJsx', () => {
     )
 })
 
+test('reference links with titles', () => {
+    const code = dedent`
+    > **Heads-up:** Check the [API docs][1] for more info.
+
+    Visit [Slack developers][2] for details.
+
+    [1]: https://api.slack.com/methods/search.messages "search.messages method - Slack API"
+    [2]: https://slack.dev/secure-data-connectivity/ "Secure Data Connectivity - Slack Developers"
+    `
+    
+    const { html } = render(code)
+    expect(html).toMatchInlineSnapshot(`"<blockquote><p><strong>Heads-up:</strong> Check the <a href="https://api.slack.com/methods/search.messages" title="search.messages method - Slack API">API docs</a> for more info.</p></blockquote><p>Visit <a href="https://slack.dev/secure-data-connectivity/" title="Secure Data Connectivity - Slack Developers">Slack developers</a> for details.</p>"`)
+})
+
 test('markdown inside jsx', () => {
     const code = dedent`
     # Hello
@@ -512,16 +526,12 @@ test('props parsing', () => {
       {
         "errors": [
           {
-            "line": 7,
-            "message": "Expressions in jsx props are not supported (expression1={1 + 3})",
-          },
-          {
             "line": 8,
-            "message": "Expressions in jsx props are not supported (expression2={Boolean(1)})",
+            "message": "Expressions in jsx prop not evaluated: (expression2={Boolean(1)})",
           },
           {
             "line": 9,
-            "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
+            "message": "Expressions in jsx prop not evaluated: (jsx={<SomeComponent />})",
           },
           {
             "line": 13,
@@ -531,12 +541,13 @@ test('props parsing', () => {
         "html": "<h1><p>hi</p></h1>",
         "result": <React.Fragment>
           <Heading
-            backTick="some \${expr} value"
+            backTick="some undefined value"
             boolean={false}
             doublequote="a " string"
+            expression1={4}
             null={null}
             num={2}
-            quote="a " string"
+            quote="a ' string"
             someJson={
               {
                 "a": 1,
@@ -551,6 +562,132 @@ test('props parsing', () => {
       }
     `)
 })
+
+test('jsx attributes with arithmetic expressions', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            level={1 + 2}
+            width={100 * 2}
+            active={!false}
+            comparison={5 > 3}
+            concat={"hello " + "world"}
+        />
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1></h1>",
+        "result": <React.Fragment>
+          <Heading
+            active={true}
+            comparison={true}
+            concat="hello world"
+            level={3}
+            width={200}
+          />
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('jsx attributes with complex objects and arrays', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            simpleArray={[1, 2, 3]}
+            stringArray={["one", "two", "three"]}
+            mixedArray={[1, "two", true, null]}
+            simpleObject={{name: "John", age: 30}}
+            nestedObject={{
+                user: {
+                    name: "Alice",
+                    preferences: {
+                        theme: "dark",
+                        lang: "en"
+                    }
+                },
+                settings: {
+                    notifications: true,
+                    emails: ["alice@example.com", "alice.work@example.com"]
+                }
+            }}
+            arrayOfObjects={[
+                {id: 1, name: "Item 1"},
+                {id: 2, name: "Item 2"}
+            ]}
+        />
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1></h1>",
+        "result": <React.Fragment>
+          <Heading
+            arrayOfObjects={
+              [
+                {
+                  "id": 1,
+                  "name": "Item 1",
+                },
+                {
+                  "id": 2,
+                  "name": "Item 2",
+                },
+              ]
+            }
+            mixedArray={
+              [
+                1,
+                "two",
+                true,
+                null,
+              ]
+            }
+            nestedObject={
+              {
+                "settings": {
+                  "emails": [
+                    "alice@example.com",
+                    "alice.work@example.com",
+                  ],
+                  "notifications": true,
+                },
+                "user": {
+                  "name": "Alice",
+                  "preferences": {
+                    "lang": "en",
+                    "theme": "dark",
+                  },
+                },
+              }
+            }
+            simpleArray={
+              [
+                1,
+                2,
+                3,
+              ]
+            }
+            simpleObject={
+              {
+                "age": 30,
+                "name": "John",
+              }
+            }
+            stringArray={
+              [
+                "one",
+                "two",
+                "three",
+              ]
+            }
+          />
+        </React.Fragment>,
+      }
+    `)
+})
+
 test('breaks', () => {
     expect(
         render(dedent`
@@ -1047,7 +1184,7 @@ test('kitchen sink', () => {
 
       [arbitrary case-insensitive reference text]: https://www.mozilla.org
       [1]: http://slashdot.org
-      [link text itself]: http://www.reddit.com</code></pre><p><a href="https://www.google.com" title="">I&#x27;m an inline-style link</a></p><p><a href="https://www.google.com" title="Google&#x27;s Homepage">I&#x27;m an inline-style link with title</a></p><p><a href="https://www.mozilla.org">I&#x27;m a reference-style link</a></p><p><a href="../blob/master/LICENSE" title="">I&#x27;m a relative reference to a repository file</a></p><p><a href="http://slashdot.org">You can use numbers for reference-style link definitions</a></p><p>Or leave it empty and use the <a href="http://www.reddit.com">link text itself</a>.</p><p>URLs and URLs in angle brackets will automatically get turned into links.
+      [link text itself]: http://www.reddit.com</code></pre><p><a href="https://www.google.com" title="">I&#x27;m an inline-style link</a></p><p><a href="https://www.google.com" title="Google&#x27;s Homepage">I&#x27;m an inline-style link with title</a></p><p><a href="https://www.mozilla.org" title="">I&#x27;m a reference-style link</a></p><p><a href="../blob/master/LICENSE" title="">I&#x27;m a relative reference to a repository file</a></p><p><a href="http://slashdot.org" title="">You can use numbers for reference-style link definitions</a></p><p>Or leave it empty and use the <a href="http://www.reddit.com" title="">link text itself</a>.</p><p>URLs and URLs in angle brackets will automatically get turned into links.
       <a href="http://www.example.com" title="">http://www.example.com</a> and sometimes
       example.com (but not on Github, for example).</p><p>Some text to show that the reference links can follow later.</p><a name="images"></a><h2>Images</h2><pre><code class="language-no-highlight">Here&#x27;s our logo (hover to see the title text):
 
@@ -1546,6 +1683,7 @@ test('kitchen sink', () => {
           <p>
             <a
               href="https://www.mozilla.org"
+              title=""
             >
               I'm a reference-style link
             </a>
@@ -1561,6 +1699,7 @@ test('kitchen sink', () => {
           <p>
             <a
               href="http://slashdot.org"
+              title=""
             >
               You can use numbers for reference-style link definitions
             </a>
@@ -1569,6 +1708,7 @@ test('kitchen sink', () => {
             Or leave it empty and use the 
             <a
               href="http://www.reddit.com"
+              title=""
             >
               link text itself
             </a>
@@ -2377,6 +2517,82 @@ test('component props schema validation with zod', () => {
     `)
 })
 
+test('mdx expressions evaluation', () => {
+    expect(
+        render(dedent`
+        # Expression Test
+
+        Simple math: {1 + 2}
+
+        <Heading>
+        Inside JSX: {3 * 4}
+        </Heading>
+
+        Boolean: {true}
+        String concat: {"hello" + " world"}
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Expression Test</h1><p>Simple math: 3</p><h1><p>Inside JSX: 12</p></h1><p>Boolean: 
+      String concat: hello world</p>",
+        "result": <React.Fragment>
+          <h1>
+            Expression Test
+          </h1>
+          <p>
+            Simple math: 
+            3
+          </p>
+          <Heading>
+            <p>
+              Inside JSX: 
+              12
+            </p>
+          </Heading>
+          <p>
+            Boolean: 
+            true
+            
+      String concat: 
+            hello world
+          </p>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdx expressions with unsupported functions', () => {
+    expect(
+        render(dedent`
+        Math function: {Math.max(5, 10)}
+        Console: {console.log("test")}
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 1,
+            "message": "Failed to evaluate expression: Math.max(5, 10)",
+          },
+          {
+            "line": 2,
+            "message": "Failed to evaluate expression: console.log("test")",
+          },
+        ],
+        "html": "<p>Math function: 
+      Console: </p>",
+        "result": <React.Fragment>
+          <p>
+            Math function: 
+            
+      Console: 
+          </p>
+        </React.Fragment>,
+      }
+    `)
+})
+
 test('schema validation without errors', () => {
     const HeadingSchema = z.object({
         level: z.number().min(1).max(6),
@@ -2471,26 +2687,30 @@ test('validation error includes schema path', () => {
         "errors": [
           {
             "line": 1,
-            "message": "Expressions in jsx props are not supported (user={{ name: "test", age: -1 }})",
+            "message": "Invalid props for component "Heading" at "user.age": Number must be greater than or equal to 0",
+            "schemaPath": "user.age",
           },
           {
             "line": 1,
-            "message": "Expressions in jsx props are not supported (settings={{ theme: "invalid" }})",
-          },
-          {
-            "line": 1,
-            "message": "Invalid props for component "Heading" at "user": Required",
-            "schemaPath": "user",
-          },
-          {
-            "line": 1,
-            "message": "Invalid props for component "Heading" at "settings": Required",
-            "schemaPath": "settings",
+            "message": "Invalid props for component "Heading" at "settings.theme": Invalid enum value. Expected 'light' | 'dark', received 'invalid'",
+            "schemaPath": "settings.theme",
           },
         ],
         "html": "<h1>Complex validation</h1>",
         "result": <React.Fragment>
-          <Heading>
+          <Heading
+            settings={
+              {
+                "theme": "invalid",
+              }
+            }
+            user={
+              {
+                "age": -1,
+                "name": "test",
+              }
+            }
+          >
             Complex validation
           </Heading>
         </React.Fragment>,

@@ -208,12 +208,12 @@ This is ok if you render your MDX in isolation from each tenant, for example on 
 
 These features are not supported yet:
 
--   expressions or values defined with `export`
--   importing components or data from other files
+-   expressions that use methods or functions, currently expressions are evaluated with [eval-estree-expression](https://github.com/jonschlinkert/eval-estree-expression) with the functions option disabled.
+-   importing components or data from other files.
+-   Exporting irresolvable or declaring components inline in the MDX
 
 To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.
 
 ## Future Roadmap
 
--   add support for expression and exports via https://github.com/jonschlinkert/eval-estree-expression
 -   add support for scope parameter to allow referencing variables in expressions and code

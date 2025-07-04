@@ -3,6 +3,7 @@ import React, { Suspense, cloneElement } from 'react'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
+import Evaluate from 'eval-estree-expression'
 
 import { Fragment, ReactNode } from 'react'
 
@@ -120,9 +121,12 @@ export class MdastToJsx {
     validateComponentProps(
         componentName: string,
         props: Record<string, any>,
-        line?: number
+        line?: number,
     ): void {
-        if (!this.componentPropsSchema || !this.componentPropsSchema[componentName]) {
+        if (
+            !this.componentPropsSchema ||
+            !this.componentPropsSchema[componentName]
+        ) {
             return
         }
 
@@ -209,9 +213,17 @@ export class MdastToJsx {
                 let attrs = Object.fromEntries(attrsList)
 
                 // Validate component props with schema if available
-                this.validateComponentProps(node.name, attrs, node.position?.start?.line)
+                this.validateComponentProps(
+                    node.name,
+                    attrs,
+                    node.position?.start?.line,
+                )
 
-                return this.createElement(Component, attrs, this.mapJsxChildren(node))
+                return this.createElement(
+                    Component,
+                    attrs,
+                    this.mapJsxChildren(node),
+                )
             }
             default: {
                 return this.mdastTransformer(node)
@@ -275,6 +287,29 @@ export class MdastToJsx {
                 if (!node.value) {
                     return []
                 }
+
+                // Check if we have an estree AST
+                if (node.data?.estree) {
+                    try {
+                        // Extract the expression from the Program body
+                        const program = node.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            // Evaluate the expression synchronously
+                            const result = Evaluate.evaluate.sync(expression)
+                            return result
+                        }
+                    } catch (error) {
+                        this.errors.push({
+                            message: `Failed to evaluate expression: ${node.value}`,
+                            line: node.position?.start?.line,
+                        })
+                    }
+                }
+
                 return []
             }
             case 'yaml': {
@@ -287,13 +322,25 @@ export class MdastToJsx {
                 const level = node.depth
                 const Tag = this.c[`h${level}`] ?? `h${level}`
 
-                return this.createElement(Tag, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    Tag,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'paragraph': {
-                return this.createElement(this.c.p, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.p,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'blockquote': {
-                return this.createElement(this.c.blockquote, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.blockquote,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'thematicBreak': {
                 return this.createElement(this.c.hr, node.data?.hProperties)
@@ -304,11 +351,12 @@ export class MdastToJsx {
                 }
                 const language = node.lang || ''
                 const code = node.value
-                const codeBlock = (className?: string) => this.createElement(
-                    this.c.pre,
-                    node.data?.hProperties,
-                    this.createElement(this.c.code, { className }, code)
-                )
+                const codeBlock = (className?: string) =>
+                    this.createElement(
+                        this.c.pre,
+                        node.data?.hProperties,
+                        this.createElement(this.c.code, { className }, code),
+                    )
 
                 if (language) {
                     return codeBlock(`language-${language}`)
@@ -321,28 +369,43 @@ export class MdastToJsx {
                     return this.createElement(
                         this.c.ol,
                         { start: node.start!, ...node.data?.hProperties },
-                        this.mapMdastChildren(node)
+                        this.mapMdastChildren(node),
                     )
                 }
-                return this.createElement(this.c.ul, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.ul,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'listItem': {
                 // https://github.com/syntax-tree/mdast-util-gfm-task-list-item#syntax-tree
                 if (node?.checked != null) {
                     return this.createElement(
                         this.c.li,
-                        { 'data-checked': node.checked, ...node.data?.hProperties },
-                        this.mapMdastChildren(node)
+                        {
+                            'data-checked': node.checked,
+                            ...node.data?.hProperties,
+                        },
+                        this.mapMdastChildren(node),
                     )
                 }
-                return this.createElement(this.c.li, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.li,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'text': {
                 if (!node.value) {
                     return []
                 }
                 if (node.data?.hProperties) {
-                    return this.createElement(this.c.span, node.data.hProperties, node.value)
+                    return this.createElement(
+                        this.c.span,
+                        node.data.hProperties,
+                        node.value,
+                    )
                 }
                 return node.value
             }
@@ -354,7 +417,7 @@ export class MdastToJsx {
                     src,
                     alt,
                     title,
-                    ...node.data?.hProperties
+                    ...node.data?.hProperties,
                 })
             }
             case 'link': {
@@ -363,32 +426,56 @@ export class MdastToJsx {
                 return this.createElement(
                     this.c.a,
                     { href, title, ...node.data?.hProperties },
-                    this.mapMdastChildren(node)
+                    this.mapMdastChildren(node),
                 )
             }
             case 'strong': {
-                return this.createElement(this.c.strong, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.strong,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'emphasis': {
-                return this.createElement(this.c.em, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.em,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'delete': {
-                return this.createElement(this.c.del, node.data?.hProperties, this.mapMdastChildren(node))
+                return this.createElement(
+                    this.c.del,
+                    node.data?.hProperties,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'inlineCode': {
                 if (!node.value) {
                     return []
                 }
-                return this.createElement(this.c.code, node.data?.hProperties, node.value)
+                return this.createElement(
+                    this.c.code,
+                    node.data?.hProperties,
+                    node.value,
+                )
             }
             case 'break': {
                 return this.createElement(this.c.br, node.data?.hProperties)
             }
             case 'root': {
                 if (node.data?.hProperties) {
-                    return this.createElement(this.c.div, node.data.hProperties, this.mapMdastChildren(node))
+                    return this.createElement(
+                        this.c.div,
+                        node.data.hProperties,
+                        this.mapMdastChildren(node),
+                    )
                 }
-                return this.createElement(Fragment, null, this.mapMdastChildren(node))
+                return this.createElement(
+                    Fragment,
+                    null,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'table': {
                 const [head, ...body] = React.Children.toArray(
@@ -398,14 +485,15 @@ export class MdastToJsx {
                     this.c.table,
                     node.data?.hProperties,
                     head && this.createElement(this.c.thead, null, head),
-                    !!body?.length && this.createElement(this.c.tbody, null, body)
+                    !!body?.length &&
+                        this.createElement(this.c.tbody, null, body),
                 )
             }
             case 'tableRow': {
                 return this.createElement(
                     this.c.tr,
                     { className: '', ...node.data?.hProperties },
-                    this.mapMdastChildren(node)
+                    this.mapMdastChildren(node),
                 )
             }
             case 'tableCell': {
@@ -413,7 +501,7 @@ export class MdastToJsx {
                 return this.createElement(
                     this.c.td,
                     { className: '', ...node.data?.hProperties },
-                    content
+                    content,
                 )
             }
             case 'definition': {
@@ -421,19 +509,21 @@ export class MdastToJsx {
             }
             case 'linkReference': {
                 let href = ''
+                let title = ''
                 mdastBfs(this.mdast, (child: any) => {
                     if (
                         child.type === 'definition' &&
                         child.identifier === node.identifier
                     ) {
-                        href = child.url
+                        href = child.url || ''
+                        title = child.title || ''
                     }
                 })
 
                 return this.createElement(
                     this.c.a,
-                    { href, ...node.data?.hProperties },
-                    this.mapMdastChildren(node)
+                    { href, title, ...node.data?.hProperties },
+                    this.mapMdastChildren(node),
                 )
             }
             case 'footnoteReference': {
@@ -457,8 +547,8 @@ export class MdastToJsx {
                     this.createElement(HtmlToJsxConverter, {
                         htmlText: text,
                         instance: this,
-                        node
-                    })
+                        node,
+                    }),
                 )
             }
             case 'imageReference': {
@@ -487,7 +577,6 @@ export function getJsxAttrs(
     let attrsList = node.attributes
         .map((attr) => {
             if (attr.type === 'mdxJsxExpressionAttribute') {
-
                 onError({
                     message: `Expressions in jsx props are not supported (${attr.value
                         .replace(/\n+/g, ' ')
@@ -508,6 +597,7 @@ export function getJsxAttrs(
                 return [attr.name, true]
             }
             if (v?.type === 'mdxJsxAttributeValueExpression') {
+                // Manual parsing fallback for simple values
                 if (v.value === 'true') {
                     return [attr.name, true]
                 }
@@ -520,28 +610,27 @@ export function getJsxAttrs(
                 if (v.value === 'undefined') {
                     return [attr.name, undefined]
                 }
-                let quote = ['"', "'", '`'].find(
-                    (q) => v.value.startsWith(q) && v.value.endsWith(q),
-                )
-                if (quote) {
-                    let value = v.value
-                    if (quote !== '"') {
-                        value = v.value.replace(new RegExp(quote, 'g'), '"')
-                    }
-                    return [attr.name, JSON.parse(value)]
-                }
 
-                const number = Number(v.value)
-                if (!isNaN(number)) {
-                    return [attr.name, number]
-                }
-                const parsedJson = safeJsonParse(v.value)
-                if (parsedJson) {
-                    return [attr.name, parsedJson]
+                if (v.data?.estree) {
+                    try {
+                        // Extract the expression from the Program body
+                        const program = v.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            // Evaluate the expression synchronously
+                            const result = Evaluate.evaluate.sync(expression)
+                            return [attr.name, result]
+                        }
+                    } catch (error) {
+                        // Fall back to the original manual parsing for backwards compatibility
+                    }
                 }
 
                 onError({
-                    message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
+                    message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
                     line: attr.position?.start?.line,
                 })
             } else {
