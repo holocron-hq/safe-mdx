@@ -3,6 +3,7 @@ import React, { Suspense, cloneElement } from 'react'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
+import type { JSXElement, JSXAttribute, JSXText, JSXExpressionContainer } from 'estree-jsx'
 import Evaluate from 'eval-estree-expression'
 
 import { Fragment, ReactNode } from 'react'
@@ -52,6 +53,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     renderNode,
     componentPropsSchema,
     createElement,
+    allowClientEsmImports = false,
 }: {
     components?: ComponentsMap
     markdown?: string
@@ -59,6 +61,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     renderNode?: RenderNode
     componentPropsSchema?: ComponentPropsSchema
     createElement?: CreateElementFunction
+    allowClientEsmImports?: boolean
 }) {
     const visitor = new MdastToJsx({
         markdown,
@@ -67,6 +70,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
         renderNode,
         componentPropsSchema,
         createElement,
+        allowClientEsmImports,
     })
     const result = visitor.run()
     return result
@@ -82,6 +86,7 @@ export class MdastToJsx {
     componentPropsSchema?: ComponentPropsSchema
     createElement: CreateElementFunction
     esmImports: Map<string, string> = new Map()
+    allowClientEsmImports: boolean
 
     constructor({
         markdown: code = '',
@@ -90,6 +95,7 @@ export class MdastToJsx {
         renderNode,
         componentPropsSchema,
         createElement = React.createElement,
+        allowClientEsmImports = false,
     }: {
         markdown?: string
         mdast: MyRootContent
@@ -100,6 +106,7 @@ export class MdastToJsx {
         ) => ReactNode | undefined
         componentPropsSchema?: ComponentPropsSchema
         createElement?: CreateElementFunction
+        allowClientEsmImports?: boolean
     }) {
         this.str = code
 
@@ -110,6 +117,8 @@ export class MdastToJsx {
         this.componentPropsSchema = componentPropsSchema
 
         this.createElement = createElement
+
+        this.allowClientEsmImports = allowClientEsmImports
 
         this.c = {
             ...Object.fromEntries(
@@ -199,8 +208,8 @@ export class MdastToJsx {
                     return []
                 }
 
-                // Check if this is an ESM imported component
-                const esmImportInfo = this.esmImports.get(node.name)
+                // Check if this is an ESM imported component (only if allowed)
+                const esmImportInfo = this.allowClientEsmImports ? this.esmImports.get(node.name) : null
                 let Component
                 
                 if (esmImportInfo) {
@@ -253,6 +262,97 @@ export class MdastToJsx {
                 return this.mdastTransformer(node)
             }
         }
+    }
+
+    transformJsxElement(jsxElement: JSXElement, onError?: (err: SafeMdxError) => void, line?: number): ReactNode {
+        try {
+            // Handle JSX opening element
+            if (jsxElement.openingElement) {
+                const tagName = jsxElement.openingElement.name?.type === 'JSXIdentifier' ? jsxElement.openingElement.name.name : null
+                if (!tagName) {
+                    onError?.({
+                        message: 'JSX element missing component name',
+                        line: line,
+                    })
+                    return null
+                }
+
+                // Check if this is an ESM imported component (only if allowed)
+                const esmImportInfo = this.allowClientEsmImports ? this.esmImports.get(tagName) : null
+                let Component
+                
+                if (esmImportInfo) {
+                    // Handle ESM imported component
+                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
+                    Component = DynamicEsmComponent
+                } else {
+                    // Get the component from the regular component map
+                    Component = accessWithDot(this.c, tagName)
+                    if (!Component) {
+                        onError?.({
+                            message: `Unsupported jsx component ${tagName} in attribute`,
+                            line: line,
+                        })
+                        return null
+                    }
+                }
+
+                // Extract attributes
+                const props: Record<string, any> = {}
+                if (jsxElement.openingElement.attributes) {
+                    for (const attr of jsxElement.openingElement.attributes) {
+                        if (attr.type === 'JSXAttribute' && attr.name?.type === 'JSXIdentifier' && attr.name.name) {
+                            if (attr.value) {
+                                if (attr.value.type === 'Literal') {
+                                    props[attr.name.name] = attr.value.value
+                                } else if (attr.value.type === 'JSXExpressionContainer') {
+                                    if (attr.value.expression.type === 'Literal') {
+                                        props[attr.name.name] = attr.value.expression.value
+                                    }
+                                }
+                            } else {
+                                props[attr.name.name] = true
+                            }
+                        }
+                    }
+                }
+
+                // Extract children
+                const children: ReactNode[] = []
+                if (jsxElement.children) {
+                    for (const child of jsxElement.children) {
+                        if (child.type === 'JSXText') {
+                            children.push(child.value)
+                        } else if (child.type === 'JSXElement') {
+                            const childElement = this.transformJsxElement(child)
+                            if (childElement) {
+                                children.push(childElement)
+                            }
+                        }
+                    }
+                }
+
+                // Handle ESM imported components by adding required props
+                if (esmImportInfo) {
+                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
+                    return this.createElement(
+                        Component,
+                        { ...props, importUrl, componentName },
+                        ...children
+                    )
+                } else {
+                    return this.createElement(Component, props, ...children)
+                }
+            }
+        } catch (error) {
+            // Return null if transformation fails
+            onError?.({
+                message: `Failed to transform JSX element: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                line: line,
+            })
+            return null
+        }
+        return null
     }
 
     getJsxAttrs(
@@ -353,6 +453,17 @@ export class MdastToJsx {
                             program.body[0].type === 'ExpressionStatement'
                         ) {
                             const expression = program.body[0].expression
+                            
+                            // Check if this is a JSX element
+                            if (expression.type === 'JSXElement') {
+                                // Transform JSX element to React element
+                                const jsxElement = this.transformJsxElement(expression, onError, attr.position?.start?.line)
+                                if (jsxElement) {
+                                    attrsList.push([attr.name, jsxElement])
+                                    continue
+                                }
+                            }
+                            
                             try {
                                 // Evaluate the expression synchronously
                                 const result = Evaluate.evaluate.sync(expression)
@@ -405,11 +516,13 @@ export class MdastToJsx {
 
         switch (node.type) {
             case 'mdxjsEsm': {
-                // Parse ESM imports and merge into our imports map
-                const parsedImports = parseEsmImports(node, (err) => this.errors.push(err))
-                parsedImports.forEach((value, key) => {
-                    this.esmImports.set(key, value)
-                })
+                // Parse ESM imports and merge into our imports map (only if allowed)
+                if (this.allowClientEsmImports) {
+                    const parsedImports = parseEsmImports(node, (err) => this.errors.push(err))
+                    parsedImports.forEach((value, key) => {
+                        this.esmImports.set(key, value)
+                    })
+                }
                 return []
             }
             case 'mdxJsxTextElement':

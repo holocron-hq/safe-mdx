@@ -14,6 +14,8 @@ after you make a change that is noteworthy, add a changeset. these will be used 
 
 Only add changesets for packages that are not marked as `private` in their `package.json` and have a `version` in the package.json.
 
+NEVER create the .changeset folder yourself, always use the `pnpm changeset add --empty` command to create it. If the command fails it means you need to go to the upper directory where the `.changeset` folder is located and run the command there.
+
 Changeset files are structured like this:
 
 ```md

@@ -17,9 +17,9 @@ const components = {
     },
 }
 
-function render(code, componentPropsSchema?: ComponentPropsSchema) {
+function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEsmImports?: boolean) {
     const mdast = mdxParse(code)
-    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema, allowClientEsmImports })
     const result = visitor.run()
     const html = renderToStaticMarkup(result)
     // console.log(JSON.stringify(result, null, 2))
@@ -532,6 +532,10 @@ test('props parsing', () => {
           {
             "line": 8,
             "message": "Expressions in jsx prop not evaluated: (expression2={Boolean(1)})",
+          },
+          {
+            "line": 9,
+            "message": "Unsupported jsx component SomeComponent in attribute",
           },
           {
             "line": 9,
@@ -2886,7 +2890,7 @@ test('ESM imports from https URLs', () => {
     `
     
     const mdast = mdxParse(code)
-    const visitor = new MdastToJsx({ markdown: code, mdast, components })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, allowClientEsmImports: true })
     const result = visitor.run()
     
     // Check that imports were parsed correctly
@@ -2914,7 +2918,7 @@ test('ESM imports error handling', () => {
     `
     
     const mdast = mdxParse(code)
-    const visitor = new MdastToJsx({ markdown: code, mdast, components })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, allowClientEsmImports: true })
     const result = visitor.run()
     
     // Only https imports should be processed
@@ -2930,4 +2934,190 @@ test('ESM imports error handling', () => {
     // Last two errors are for unsupported components
     expect(visitor.errors[2].message).toContain('Unsupported jsx component Button')
     expect(visitor.errors[3].message).toContain('Unsupported jsx component Component')
+})
+
+test('jsx components in attributes', () => {
+    const code = dedent`
+    # JSX Components in Attributes
+
+    <Heading icon={<span>👋</span>} level={1}>
+    Hello World
+    </Heading>
+
+    <Cards items={<div>Item 1</div>}>
+    Some content
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Should render correctly
+    expect(html).toMatchInlineSnapshot(`"<h1>JSX Components in Attributes</h1><h1><p>Hello World</p></h1><div><p>Some content</p></div>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          JSX Components in Attributes
+        </h1>
+        <Heading
+          icon={
+            <span>
+              👋
+            </span>
+          }
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+        <Cards
+          items={
+            <div>
+              Item 1
+            </div>
+          }
+        >
+          <p>
+            Some content
+          </p>
+        </Cards>
+      </React.Fragment>
+    `)
+})
+
+test('jsx components in attributes with ESM imports', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    import { Icon } from 'https://esm.sh/some-icon-library'
+    
+    # ESM Components in Attributes
+
+    <Heading icon={<Icon name="star" />} level={1}>
+    Hello World
+    </Heading>
+
+    <Cards actionButton={<Button>Click me</Button>}>
+    Some content
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code, undefined, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Should render correctly - ESM components should be wrapped in DynamicEsmComponent
+    expect(html).toMatchInlineSnapshot(`"<h1>ESM Components in Attributes</h1><h1><p>Hello World</p></h1><div><p>Some content</p></div>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          ESM Components in Attributes
+        </h1>
+        <Heading
+          icon={
+            <DynamicEsmComponent
+              componentName="Icon"
+              importUrl="https://esm.sh/some-icon-library"
+              name="star"
+            />
+          }
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+        <Cards
+          actionButton={
+            <DynamicEsmComponent
+              componentName="default"
+              importUrl="https://esm.sh/some-button-component"
+            >
+              Click me
+            </DynamicEsmComponent>
+          }
+        >
+          <p>
+            Some content
+          </p>
+        </Cards>
+      </React.Fragment>
+    `)
+})
+
+test('ESM imports disabled by default', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    
+    # Test Default Behavior
+
+    <Button>This should not work</Button>
+    `
+    
+    const { result, errors, html } = render(code) // No allowClientEsmImports flag
+    
+    // ESM imports should not be processed when disabled
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components }) // Default allowClientEsmImports: false
+    expect(visitor.esmImports.size).toBe(0)
+    
+    // Should have error for unsupported component
+    expect(errors.length).toBeGreaterThan(0)
+    expect(errors.some(e => e.message.includes('Unsupported jsx component Button'))).toBe(true)
+    
+    // Should render heading but not the button
+    expect(html).toMatchInlineSnapshot(`"<h1>Test Default Behavior</h1>"`)
+})
+
+test("jsx components in attributes error handling", () => {
+    const code = dedent`
+    # Error Handling Test
+
+    <Heading icon={<UnsupportedComponent />} level={1}>
+    Hello World
+    </Heading>
+    `
+    
+    const { result, errors, html } = render(code)
+    
+    // Should have an error for the unsupported component
+    expect(errors).toMatchInlineSnapshot(`
+      [
+        {
+          "line": 3,
+          "message": "Unsupported jsx component UnsupportedComponent in attribute",
+        },
+        {
+          "line": 3,
+          "message": "Failed to evaluate expression attribute: icon={<UnsupportedComponent />}",
+        },
+        {
+          "line": 3,
+          "message": "Expressions in jsx prop not evaluated: (icon={<UnsupportedComponent />})",
+        },
+      ]
+    `)
+    
+    // Should still render the rest of the content
+    expect(html).toMatchInlineSnapshot(`"<h1>Error Handling Test</h1><h1><p>Hello World</p></h1>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          Error Handling Test
+        </h1>
+        <Heading
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+      </React.Fragment>
+    `)
 })

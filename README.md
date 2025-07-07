@@ -15,6 +15,7 @@
 -   Supports custom MDX components
 -   custom `createElement`. Pass a no-op function to use safe-mdx as a validation step.
 -   use `componentPropsSchema` to validate component props against a schema (works with Zod, Valibot, etc).
+-   ESM `https://` imports support with `allowClientEsmImports` option (disabled by default for security)
 -   fast. 3ms to render the [full mdx document for Zod v3](https://github.com/colinhacks/zod/blob/0a49fa39348b7c72b19ddedc3b0f879bd395304b/packages/docs/content/packages/v3.mdx) (2500 lines)
 
 ## Why
@@ -77,6 +78,104 @@ export function Page() {
     )
 }
 ```
+
+## JSX Components in Attributes
+
+safe-mdx supports using JSX components inside component attributes, providing a secure alternative to JavaScript evaluation.
+
+```tsx
+import { SafeMdxRenderer } from 'safe-mdx'
+import { mdxParse } from 'safe-mdx/parse'
+
+const code = `
+# Components in Attributes
+
+<Card
+  icon={<Icon name="star" />}
+  actions={<Button variant="primary">Click me</Button>}
+>
+  Card content with JSX components in attributes
+</Card>
+`
+
+export function Page() {
+    const ast = mdxParse(code)
+    return (
+        <SafeMdxRenderer
+            markdown={code}
+            mdast={ast}
+            components={{
+                Card({ icon, actions, children }) {
+                    return (
+                        <div className="card">
+                            <div className="header">
+                                {icon}
+                                <div className="actions">{actions}</div>
+                            </div>
+                            <div className="content">{children}</div>
+                        </div>
+                    )
+                },
+                Icon({ name }) {
+                    return <span>⭐</span> // Your icon component
+                },
+                Button({ variant, children }) {
+                    return <button className={variant}>{children}</button>
+                },
+            }}
+        />
+    )
+}
+```
+
+### ESM Imports in Attributes
+
+To use externally imported components in attributes, enable the `allowClientEsmImports` option:
+
+```tsx
+import { SafeMdxRenderer } from 'safe-mdx'
+import { mdxParse } from 'safe-mdx/parse'
+
+const code = `
+import { Icon } from 'https://esm.sh/lucide-react'
+import Button from 'https://esm.sh/my-ui-library'
+
+# External Components in Attributes
+
+<Card
+  icon={<Icon name="star" />}
+  action={<Button>External Button</Button>}
+>
+  Using externally imported components
+</Card>
+`
+
+export function Page() {
+    const ast = mdxParse(code)
+    return (
+        <SafeMdxRenderer
+            markdown={code}
+            mdast={ast}
+            allowClientEsmImports={true} // Required for ESM imports
+            components={{
+                Card({ icon, action, children }) {
+                    return (
+                        <div className="card">
+                            <div className="header">
+                                {icon}
+                                {action}
+                            </div>
+                            <div className="content">{children}</div>
+                        </div>
+                    )
+                },
+            }}
+        />
+    )
+}
+```
+
+**Security Note**: ESM imports are disabled by default. Only enable `allowClientEsmImports` when you trust the MDX source, as it allows loading external code.
 
 ## Change default MDX parser
 
@@ -209,10 +308,12 @@ This is ok if you render your MDX in isolation from each tenant, for example on 
 These features are not supported yet:
 
 -   expressions that use methods or functions, currently expressions are evaluated with [eval-estree-expression](https://github.com/jonschlinkert/eval-estree-expression) with the functions option disabled.
--   importing components or data from other files.
+-   importing components or data from other files (unless `allowClientEsmImports` is enabled for https:// imports).
 -   Exporting irresolvable or declaring components inline in the MDX
 
-To overcome these limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.
+**Note**: JSX components in attributes are now supported! You can use React components inside attributes like `<Card icon={<Icon />}>` without relying on JavaScript evaluation.
+
+To overcome the remaining limitations you can define custom logic in your components and pass them to `SafeMdxRenderer` `components` prop. This will also make your MDX files cleaner and easier to read.
 
 ## Future Roadmap
 
