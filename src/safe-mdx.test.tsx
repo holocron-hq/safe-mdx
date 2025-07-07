@@ -2866,3 +2866,68 @@ test('mdxJsxExpressionAttribute edge cases', () => {
       }
     `)
 })
+
+test('ESM imports from https URLs', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    import { Card, Modal } from 'https://esm.sh/some-ui-library'
+    
+    # Hello
+    
+    <Button>Click me</Button>
+    
+    <Card title="Test Card">
+        Content inside card
+    </Card>
+    
+    <Modal open={true}>
+        Modal content
+    </Modal>
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components })
+    const result = visitor.run()
+    
+    // Check that imports were parsed correctly
+    expect(visitor.esmImports.size).toBe(3)
+    expect(visitor.esmImports.get('Button')).toBe('https://esm.sh/some-button-component')
+    expect(visitor.esmImports.get('Card')).toBe('https://esm.sh/some-ui-library#Card')
+    expect(visitor.esmImports.get('Modal')).toBe('https://esm.sh/some-ui-library#Modal')
+    
+    // Since these are dynamic imports that only work on client, the server render should return null
+    const html = renderToStaticMarkup(result)
+    expect(html).toMatchInlineSnapshot(`"<h1>Hello</h1>"`)
+    
+    expect(visitor.errors).toEqual([])
+})
+
+test('ESM imports error handling', () => {
+    const code = dedent`
+    import Button from 'file:///local/path'
+    import Component from './relative/path'
+    
+    # Test
+    
+    <Button>Local import should not work</Button>
+    <Component>Relative import should not work</Component>
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components })
+    const result = visitor.run()
+    
+    // Only https imports should be processed
+    expect(visitor.esmImports.size).toBe(0)
+    
+    // Should have 4 errors: 2 for invalid imports, 2 for unsupported components
+    expect(visitor.errors.length).toBe(4)
+    
+    // First two errors are for invalid imports
+    expect(visitor.errors[0].message).toContain('Invalid import URL')
+    expect(visitor.errors[1].message).toContain('Invalid import URL')
+    
+    // Last two errors are for unsupported components
+    expect(visitor.errors[2].message).toContain('Unsupported jsx component Button')
+    expect(visitor.errors[3].message).toContain('Unsupported jsx component Component')
+})

@@ -6,6 +6,8 @@ import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 import Evaluate from 'eval-estree-expression'
 
 import { Fragment, ReactNode } from 'react'
+import { DynamicEsmComponent } from './dynamic-esm-component.js'
+import { parseEsmImports, extractComponentInfo } from './esm-parser.js'
 
 const HtmlToJsxConverter = React.lazy(() =>
     import('./HtmlToJsxConverter.js').then((module) => ({
@@ -79,6 +81,7 @@ export class MdastToJsx {
     renderNode?: RenderNode
     componentPropsSchema?: ComponentPropsSchema
     createElement: CreateElementFunction
+    esmImports: Map<string, string> = new Map()
 
     constructor({
         markdown: code = '',
@@ -196,14 +199,35 @@ export class MdastToJsx {
                     return []
                 }
 
-                const Component = accessWithDot(this.c, node.name)
-
-                if (!Component) {
-                    this.errors.push({
-                        message: `Unsupported jsx component ${node.name}`,
-                        line: node.position?.start?.line,
+                // Check if this is an ESM imported component
+                const esmImportInfo = this.esmImports.get(node.name)
+                let Component
+                
+                if (esmImportInfo) {
+                    // Handle ESM imported component
+                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
+                    
+                    Component = DynamicEsmComponent
+                    let attrsList = this.getJsxAttrs(node, (err) => {
+                        this.errors.push(err)
                     })
-                    return null
+                    let attrs = Object.fromEntries(attrsList)
+                    
+                    return this.createElement(
+                        Component,
+                        { ...attrs, importUrl, componentName },
+                        this.mapJsxChildren(node),
+                    )
+                } else {
+                    Component = accessWithDot(this.c, node.name)
+
+                    if (!Component) {
+                        this.errors.push({
+                            message: `Unsupported jsx component ${node.name}`,
+                            line: node.position?.start?.line,
+                        })
+                        return null
+                    }
                 }
 
                 let attrsList = this.getJsxAttrs(node, (err) => {
@@ -381,10 +405,11 @@ export class MdastToJsx {
 
         switch (node.type) {
             case 'mdxjsEsm': {
-                const start = node.position?.start?.offset
-                const end = node.position?.end?.offset
-                let text = this.str.slice(start, end)
-
+                // Parse ESM imports and merge into our imports map
+                const parsedImports = parseEsmImports(node, (err) => this.errors.push(err))
+                parsedImports.forEach((value, key) => {
+                    this.esmImports.set(key, value)
+                })
                 return []
             }
             case 'mdxJsxTextElement':
