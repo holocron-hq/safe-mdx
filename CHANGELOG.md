@@ -1,5 +1,44 @@
 # safe-mdx
 
+## 1.2.0
+
+### Minor Changes
+
+-   Add support for rendering user-provided ESM components via HTTPS imports. Components can be imported using standard ESM import syntax with HTTPS URLs, and they will be dynamically loaded on the client side only, maintaining SSR compatibility. The implementation includes proper error boundaries to handle loading failures gracefully, URL validation to ensure only HTTPS imports are allowed for security, and uses React.lazy with useState to ensure imports are only initialized once per component instance. Example usage: `import Button from 'https://esm.sh/@mui/material@5.0.0/Button'` in MDX will dynamically load the Button component on the client side.
+-   Add support for JSX components inside attributes without relying on eval-estree-expression. Components can now be used in attributes like `<Heading icon={<Icon name="star" />}>` with both regular components and ESM imports. The implementation uses proper AST transformation instead of JavaScript evaluation for better security and type safety.
+
+  **New option:** `allowClientEsmImports` (disabled by default) - Controls whether ESM imports are processed. When disabled, ESM imports are ignored for security.
+
+    Example usage with regular components:
+
+    ```mdx
+    <Heading icon={<span>👋</span>} level={1}>
+      Hello World
+    </Heading>
+
+    <Cards actionButton={<Button>Click me</Button>}>
+      Some content
+    </Cards>
+    ```
+
+    ESM imported components (requires `allowClientEsmImports: true`):
+
+    ```mdx
+    import { Icon } from 'https://esm.sh/some-icon-library'
+
+    <Heading icon={<Icon name='star' />}>Content</Heading>
+    ```
+
+    ```tsx
+    // Enable ESM imports
+    const result = SafeMdxRenderer({
+        mdast,
+        allowClientEsmImports: true, // Required for ESM imports
+        components,
+    })
+    ```
+-   Add support for `eval-estree-expression` as a parser for JSX attribute expressions. This significantly improves the parsing of JSX arguments in MDX, enabling support for complex objects and arrays that are not valid JSON. For example, you can now pass props like `options={{foo: 1, bar: [2, 3], 'data-test': true}}`, or functions and nested structures, closely matching React's JSX behavior without requiring valid JSON syntax.
+
 ## 1.1.0
 
 ### Minor Changes
