@@ -1,5 +1,19 @@
 # safe-mdx
 
+## 1.3.0
+
+### Minor Changes
+
+-   Add support for markdown line numbers via `addMarkdownLineNumbers` option. When enabled, this option adds a `data-markdown-line` attribute to each rendered element containing the line number of the corresponding markdown source. This enables mapping rendered elements back to their original position in the markdown source code.
+
+    Example usage:
+
+    ```tsx
+    <SafeMdxRenderer mdast={mdast} addMarkdownLineNumbers={true} />
+    ```
+
+    The `data-markdown-line` attribute will be added to all rendered HTML elements like headings, paragraphs, lists, tables, etc., with the value being the start line number of the markdown node.
+
 ## 1.2.0
 
 ### Minor Changes
@@ -7,7 +21,7 @@
 -   Add support for rendering user-provided ESM components via HTTPS imports. Components can be imported using standard ESM import syntax with HTTPS URLs, and they will be dynamically loaded on the client side only, maintaining SSR compatibility. The implementation includes proper error boundaries to handle loading failures gracefully, URL validation to ensure only HTTPS imports are allowed for security, and uses React.lazy with useState to ensure imports are only initialized once per component instance. Example usage: `import Button from 'https://esm.sh/@mui/material@5.0.0/Button'` in MDX will dynamically load the Button component on the client side.
 -   Add support for JSX components inside attributes without relying on eval-estree-expression. Components can now be used in attributes like `<Heading icon={<Icon name="star" />}>` with both regular components and ESM imports. The implementation uses proper AST transformation instead of JavaScript evaluation for better security and type safety.
 
-  **New option:** `allowClientEsmImports` (disabled by default) - Controls whether ESM imports are processed. When disabled, ESM imports are ignored for security.
+**New option:** `allowClientEsmImports` (disabled by default) - Controls whether ESM imports are processed. When disabled, ESM imports are ignored for security.
 
     Example usage with regular components:
 
@@ -37,6 +51,7 @@
         components,
     })
     ```
+
 -   Add support for `eval-estree-expression` as a parser for JSX attribute expressions. This significantly improves the parsing of JSX arguments in MDX, enabling support for complex objects and arrays that are not valid JSON. For example, you can now pass props like `options={{foo: 1, bar: [2, 3], 'data-test': true}}`, or functions and nested structures, closely matching React's JSX behavior without requiring valid JSON syntax.
 
 ## 1.1.0
