@@ -3,7 +3,12 @@ import React, { Suspense, cloneElement } from 'react'
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
-import type { JSXElement, JSXAttribute, JSXText, JSXExpressionContainer } from 'estree-jsx'
+import type {
+    JSXElement,
+    JSXAttribute,
+    JSXText,
+    JSXExpressionContainer,
+} from 'estree-jsx'
 import Evaluate from 'eval-estree-expression'
 
 import { Fragment, ReactNode } from 'react'
@@ -54,6 +59,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     componentPropsSchema,
     createElement,
     allowClientEsmImports = false,
+    addMarkdownLineNumbers = false,
 }: {
     components?: ComponentsMap
     markdown?: string
@@ -62,6 +68,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     componentPropsSchema?: ComponentPropsSchema
     createElement?: CreateElementFunction
     allowClientEsmImports?: boolean
+    addMarkdownLineNumbers?: boolean
 }) {
     const visitor = new MdastToJsx({
         markdown,
@@ -71,6 +78,7 @@ export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
         componentPropsSchema,
         createElement,
         allowClientEsmImports,
+        addMarkdownLineNumbers,
     })
     const result = visitor.run()
     return result
@@ -87,6 +95,7 @@ export class MdastToJsx {
     createElement: CreateElementFunction
     esmImports: Map<string, string> = new Map()
     allowClientEsmImports: boolean
+    addMarkdownLineNumbers: boolean
 
     constructor({
         markdown: code = '',
@@ -96,6 +105,7 @@ export class MdastToJsx {
         componentPropsSchema,
         createElement = React.createElement,
         allowClientEsmImports = false,
+        addMarkdownLineNumbers = false,
     }: {
         markdown?: string
         mdast: MyRootContent
@@ -107,6 +117,7 @@ export class MdastToJsx {
         componentPropsSchema?: ComponentPropsSchema
         createElement?: CreateElementFunction
         allowClientEsmImports?: boolean
+        addMarkdownLineNumbers?: boolean
     }) {
         this.str = code
 
@@ -120,6 +131,8 @@ export class MdastToJsx {
 
         this.allowClientEsmImports = allowClientEsmImports
 
+        this.addMarkdownLineNumbers = addMarkdownLineNumbers
+
         this.c = {
             ...Object.fromEntries(
                 nativeTags.map((tag) => {
@@ -128,6 +141,24 @@ export class MdastToJsx {
             ),
             ...components,
         }
+    }
+
+    addLineNumberToProps(
+        props: Record<string, any> | undefined,
+        node: MyRootContent,
+    ): Record<string, any> {
+        if (!this.addMarkdownLineNumbers) {
+            return props || {}
+        }
+
+        const lineNumber = node.position?.start?.line
+        if (lineNumber) {
+            return {
+                ...props,
+                'data-markdown-line': lineNumber,
+            }
+        }
+        return props || {}
     }
 
     validateComponentProps(
@@ -209,19 +240,22 @@ export class MdastToJsx {
                 }
 
                 // Check if this is an ESM imported component (only if allowed)
-                const esmImportInfo = this.allowClientEsmImports ? this.esmImports.get(node.name) : null
+                const esmImportInfo = this.allowClientEsmImports
+                    ? this.esmImports.get(node.name)
+                    : null
                 let Component
-                
+
                 if (esmImportInfo) {
                     // Handle ESM imported component
-                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
-                    
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
+
                     Component = DynamicEsmComponent
                     let attrsList = this.getJsxAttrs(node, (err) => {
                         this.errors.push(err)
                     })
                     let attrs = Object.fromEntries(attrsList)
-                    
+
                     return this.createElement(
                         Component,
                         { ...attrs, importUrl, componentName },
@@ -264,11 +298,18 @@ export class MdastToJsx {
         }
     }
 
-    transformJsxElement(jsxElement: JSXElement, onError?: (err: SafeMdxError) => void, line?: number): ReactNode {
+    transformJsxElement(
+        jsxElement: JSXElement,
+        onError?: (err: SafeMdxError) => void,
+        line?: number,
+    ): ReactNode {
         try {
             // Handle JSX opening element
             if (jsxElement.openingElement) {
-                const tagName = jsxElement.openingElement.name?.type === 'JSXIdentifier' ? jsxElement.openingElement.name.name : null
+                const tagName =
+                    jsxElement.openingElement.name?.type === 'JSXIdentifier'
+                        ? jsxElement.openingElement.name.name
+                        : null
                 if (!tagName) {
                     onError?.({
                         message: 'JSX element missing component name',
@@ -278,12 +319,15 @@ export class MdastToJsx {
                 }
 
                 // Check if this is an ESM imported component (only if allowed)
-                const esmImportInfo = this.allowClientEsmImports ? this.esmImports.get(tagName) : null
+                const esmImportInfo = this.allowClientEsmImports
+                    ? this.esmImports.get(tagName)
+                    : null
                 let Component
-                
+
                 if (esmImportInfo) {
                     // Handle ESM imported component
-                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
                     Component = DynamicEsmComponent
                 } else {
                     // Get the component from the regular component map
@@ -301,13 +345,22 @@ export class MdastToJsx {
                 const props: Record<string, any> = {}
                 if (jsxElement.openingElement.attributes) {
                     for (const attr of jsxElement.openingElement.attributes) {
-                        if (attr.type === 'JSXAttribute' && attr.name?.type === 'JSXIdentifier' && attr.name.name) {
+                        if (
+                            attr.type === 'JSXAttribute' &&
+                            attr.name?.type === 'JSXIdentifier' &&
+                            attr.name.name
+                        ) {
                             if (attr.value) {
                                 if (attr.value.type === 'Literal') {
                                     props[attr.name.name] = attr.value.value
-                                } else if (attr.value.type === 'JSXExpressionContainer') {
-                                    if (attr.value.expression.type === 'Literal') {
-                                        props[attr.name.name] = attr.value.expression.value
+                                } else if (
+                                    attr.value.type === 'JSXExpressionContainer'
+                                ) {
+                                    if (
+                                        attr.value.expression.type === 'Literal'
+                                    ) {
+                                        props[attr.name.name] =
+                                            attr.value.expression.value
                                     }
                                 }
                             } else {
@@ -334,11 +387,12 @@ export class MdastToJsx {
 
                 // Handle ESM imported components by adding required props
                 if (esmImportInfo) {
-                    const { importUrl, componentName } = extractComponentInfo(esmImportInfo)
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
                     return this.createElement(
                         Component,
                         { ...props, importUrl, componentName },
-                        ...children
+                        ...children,
                     )
                 } else {
                     return this.createElement(Component, props, ...children)
@@ -347,7 +401,9 @@ export class MdastToJsx {
         } catch (error) {
             // Return null if transformation fails
             onError?.({
-                message: `Failed to transform JSX element: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                message: `Failed to transform JSX element: ${
+                    error instanceof Error ? error.message : 'Unknown error'
+                }`,
                 line: line,
             })
             return null
@@ -373,10 +429,14 @@ export class MdastToJsx {
                         ) {
                             const expression = program.body[0].expression
                             try {
-                                const result = Evaluate.evaluate.sync(expression)
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
 
                                 // Handle spread syntax - merge the evaluated object
-                                if (typeof result === 'object' && result != null) {
+                                if (
+                                    typeof result === 'object' &&
+                                    result != null
+                                ) {
                                     const entries = Object.entries(result)
                                     attrsList.push(...entries)
                                 }
@@ -453,20 +513,25 @@ export class MdastToJsx {
                             program.body[0].type === 'ExpressionStatement'
                         ) {
                             const expression = program.body[0].expression
-                            
+
                             // Check if this is a JSX element
                             if (expression.type === 'JSXElement') {
                                 // Transform JSX element to React element
-                                const jsxElement = this.transformJsxElement(expression, onError, attr.position?.start?.line)
+                                const jsxElement = this.transformJsxElement(
+                                    expression,
+                                    onError,
+                                    attr.position?.start?.line,
+                                )
                                 if (jsxElement) {
                                     attrsList.push([attr.name, jsxElement])
                                     continue
                                 }
                             }
-                            
+
                             try {
                                 // Evaluate the expression synchronously
-                                const result = Evaluate.evaluate.sync(expression)
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
                                 attrsList.push([attr.name, result])
                                 continue
                             } catch (error) {
@@ -518,7 +583,9 @@ export class MdastToJsx {
             case 'mdxjsEsm': {
                 // Parse ESM imports and merge into our imports map (only if allowed)
                 if (this.allowClientEsmImports) {
-                    const parsedImports = parseEsmImports(node, (err) => this.errors.push(err))
+                    const parsedImports = parseEsmImports(node, (err) =>
+                        this.errors.push(err),
+                    )
                     parsedImports.forEach((value, key) => {
                         this.esmImports.set(key, value)
                     })
@@ -562,7 +629,8 @@ export class MdastToJsx {
                             const expression = program.body[0].expression
                             try {
                                 // Evaluate the expression synchronously
-                                const result = Evaluate.evaluate.sync(expression)
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
                                 return result
                             } catch (error) {
                                 this.errors.push({
@@ -593,26 +661,29 @@ export class MdastToJsx {
 
                 return this.createElement(
                     Tag,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
             case 'paragraph': {
                 return this.createElement(
                     this.c.p,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
             case 'blockquote': {
                 return this.createElement(
                     this.c.blockquote,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
             case 'thematicBreak': {
-                return this.createElement(this.c.hr, node.data?.hProperties)
+                return this.createElement(
+                    this.c.hr,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                )
             }
             case 'code': {
                 if (!node.value) {
@@ -623,7 +694,7 @@ export class MdastToJsx {
                 const codeBlock = (className?: string) =>
                     this.createElement(
                         this.c.pre,
-                        node.data?.hProperties,
+                        this.addLineNumberToProps(node.data?.hProperties, node),
                         this.createElement(this.c.code, { className }, code),
                     )
 
@@ -637,13 +708,16 @@ export class MdastToJsx {
                 if (node.ordered) {
                     return this.createElement(
                         this.c.ol,
-                        { start: node.start!, ...node.data?.hProperties },
+                        this.addLineNumberToProps(
+                            { start: node.start!, ...node.data?.hProperties },
+                            node,
+                        ),
                         this.mapMdastChildren(node),
                     )
                 }
                 return this.createElement(
                     this.c.ul,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
@@ -652,16 +726,19 @@ export class MdastToJsx {
                 if (node?.checked != null) {
                     return this.createElement(
                         this.c.li,
-                        {
-                            'data-checked': node.checked,
-                            ...node.data?.hProperties,
-                        },
+                        this.addLineNumberToProps(
+                            {
+                                'data-checked': node.checked,
+                                ...node.data?.hProperties,
+                            },
+                            node,
+                        ),
                         this.mapMdastChildren(node),
                     )
                 }
                 return this.createElement(
                     this.c.li,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
@@ -672,7 +749,7 @@ export class MdastToJsx {
                 if (node.data?.hProperties) {
                     return this.createElement(
                         this.c.span,
-                        node.data.hProperties,
+                        this.addLineNumberToProps(node.data.hProperties, node),
                         node.value,
                     )
                 }
@@ -682,40 +759,49 @@ export class MdastToJsx {
                 const src = node.url || ''
                 const alt = node.alt || ''
                 const title = node.title || ''
-                return this.createElement(this.c.img, {
-                    src,
-                    alt,
-                    title,
-                    ...node.data?.hProperties,
-                })
+                return this.createElement(
+                    this.c.img,
+                    this.addLineNumberToProps(
+                        {
+                            src,
+                            alt,
+                            title,
+                            ...node.data?.hProperties,
+                        },
+                        node,
+                    ),
+                )
             }
             case 'link': {
                 const href = node.url || ''
                 const title = node.title || ''
                 return this.createElement(
                     this.c.a,
-                    { href, title, ...node.data?.hProperties },
+                    this.addLineNumberToProps(
+                        { href, title, ...node.data?.hProperties },
+                        node,
+                    ),
                     this.mapMdastChildren(node),
                 )
             }
             case 'strong': {
                 return this.createElement(
                     this.c.strong,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
             case 'emphasis': {
                 return this.createElement(
                     this.c.em,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
             case 'delete': {
                 return this.createElement(
                     this.c.del,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     this.mapMdastChildren(node),
                 )
             }
@@ -725,18 +811,21 @@ export class MdastToJsx {
                 }
                 return this.createElement(
                     this.c.code,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     node.value,
                 )
             }
             case 'break': {
-                return this.createElement(this.c.br, node.data?.hProperties)
+                return this.createElement(
+                    this.c.br,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                )
             }
             case 'root': {
                 if (node.data?.hProperties) {
                     return this.createElement(
                         this.c.div,
-                        node.data.hProperties,
+                        this.addLineNumberToProps(node.data.hProperties, node),
                         this.mapMdastChildren(node),
                     )
                 }
@@ -752,7 +841,7 @@ export class MdastToJsx {
                 )
                 return this.createElement(
                     this.c.table,
-                    node.data?.hProperties,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
                     head && this.createElement(this.c.thead, null, head),
                     !!body?.length &&
                         this.createElement(this.c.tbody, null, body),
@@ -761,7 +850,10 @@ export class MdastToJsx {
             case 'tableRow': {
                 return this.createElement(
                     this.c.tr,
-                    { className: '', ...node.data?.hProperties },
+                    this.addLineNumberToProps(
+                        { className: '', ...node.data?.hProperties },
+                        node,
+                    ),
                     this.mapMdastChildren(node),
                 )
             }
@@ -769,7 +861,10 @@ export class MdastToJsx {
                 let content = this.mapMdastChildren(node)
                 return this.createElement(
                     this.c.td,
-                    { className: '', ...node.data?.hProperties },
+                    this.addLineNumberToProps(
+                        { className: '', ...node.data?.hProperties },
+                        node,
+                    ),
                     content,
                 )
             }
@@ -791,7 +886,10 @@ export class MdastToJsx {
 
                 return this.createElement(
                     this.c.a,
-                    { href, title, ...node.data?.hProperties },
+                    this.addLineNumberToProps(
+                        { href, title, ...node.data?.hProperties },
+                        node,
+                    ),
                     this.mapMdastChildren(node),
                 )
             }

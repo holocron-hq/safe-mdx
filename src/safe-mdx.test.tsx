@@ -17,9 +17,9 @@ const components = {
     },
 }
 
-function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEsmImports?: boolean) {
+function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEsmImports?: boolean, addMarkdownLineNumbers?: boolean) {
     const mdast = mdxParse(code)
-    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema, allowClientEsmImports })
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema, allowClientEsmImports, addMarkdownLineNumbers })
     const result = visitor.run()
     const html = renderToStaticMarkup(result)
     // console.log(JSON.stringify(result, null, 2))
@@ -3118,6 +3118,135 @@ test("jsx components in attributes error handling", () => {
             Hello World
           </p>
         </Heading>
+      </React.Fragment>
+    `)
+})
+
+test('addMarkdownLineNumbers adds data-markdown-line attributes', () => {
+    const code = dedent`
+    # Hello World
+
+    This is a **paragraph** with *emphasis*.
+
+    <Heading level={2}>
+    Custom component
+    </Heading>
+
+    - List item 1
+    - List item 2
+
+    | Column 1 | Column 2 |
+    |----------|----------|
+    | Cell 1   | Cell 2   |
+    `
+    
+    const { result, errors, html } = render(code, undefined, false, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Check that data-markdown-line attributes are present in HTML
+    expect(html).toContain('data-markdown-line="1"')
+    expect(html).toContain('data-markdown-line="3"')
+    expect(html).toContain('data-markdown-line="9"')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1
+          data-markdown-line={1}
+        >
+          Hello World
+        </h1>
+        <p
+          data-markdown-line={3}
+        >
+          This is a 
+          <strong
+            data-markdown-line={3}
+          >
+            paragraph
+          </strong>
+           with 
+          <em
+            data-markdown-line={3}
+          >
+            emphasis
+          </em>
+          .
+        </p>
+        <Heading
+          level={2}
+        >
+          <p
+            data-markdown-line={6}
+          >
+            Custom component
+          </p>
+        </Heading>
+        <ul
+          data-markdown-line={9}
+        >
+          <li
+            data-markdown-line={9}
+          >
+            <p
+              data-markdown-line={9}
+            >
+              List item 1
+            </p>
+          </li>
+          <li
+            data-markdown-line={10}
+          >
+            <p
+              data-markdown-line={10}
+            >
+              List item 2
+            </p>
+          </li>
+        </ul>
+        <table
+          data-markdown-line={12}
+        >
+          <thead>
+            <tr
+              className=""
+              data-markdown-line={12}
+            >
+              <td
+                className=""
+                data-markdown-line={12}
+              >
+                Column 1
+              </td>
+              <td
+                className=""
+                data-markdown-line={12}
+              >
+                Column 2
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              className=""
+              data-markdown-line={14}
+            >
+              <td
+                className=""
+                data-markdown-line={14}
+              >
+                Cell 1
+              </td>
+              <td
+                className=""
+                data-markdown-line={14}
+              >
+                Cell 2
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </React.Fragment>
     `)
 })
