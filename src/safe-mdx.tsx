@@ -444,7 +444,7 @@ export class MdastToJsx {
                                 onError({
                                     message: `Failed to evaluate expression attribute: ${attr.value
                                         .replace(/\n+/g, ' ')
-                                        .replace(/ +/g, ' ')}`,
+                                        .replace(/ +/g, ' ')}. ${error instanceof Error ? error.message : String(error)}`,
                                     line: attr.position?.start?.line,
                                 })
                             }
@@ -453,7 +453,7 @@ export class MdastToJsx {
                         onError({
                             message: `Failed to evaluate expression attribute: ${attr.value
                                 .replace(/\n+/g, ' ')
-                                .replace(/ +/g, ' ')}`,
+                                .replace(/ +/g, ' ')}. ${error instanceof Error ? error.message : String(error)}`,
                             line: attr.position?.start?.line,
                         })
                     }
@@ -536,7 +536,7 @@ export class MdastToJsx {
                                 continue
                             } catch (error) {
                                 onError({
-                                    message: `Failed to evaluate expression attribute: ${attr.name}={${v.value}}`,
+                                    message: `Failed to evaluate expression attribute: ${attr.name}={${v.value}}. ${error instanceof Error ? error.message : String(error)}`,
                                     line: attr.position?.start?.line,
                                 })
                             }
@@ -634,14 +634,14 @@ export class MdastToJsx {
                                 return result
                             } catch (error) {
                                 this.errors.push({
-                                    message: `Failed to evaluate expression: ${node.value}`,
+                                    message: `Failed to evaluate expression: ${node.value}. ${error instanceof Error ? error.message : String(error)}`,
                                     line: node.position?.start?.line,
                                 })
                             }
                         }
                     } catch (error) {
                         this.errors.push({
-                            message: `Failed to evaluate expression: ${node.value}`,
+                            message: `Failed to evaluate expression: ${node.value}. ${error instanceof Error ? error.message : String(error)}`,
                             line: node.position?.start?.line,
                         })
                     }

@@ -15,6 +15,9 @@ const components = {
     Cards({ level, children, ...props }) {
         return <div {...props}>{children}</div>
     },
+    Tabs({ items, children, ...props }) {
+        return <div {...props}>{children}</div>
+    },
 }
 
 function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEsmImports?: boolean, addMarkdownLineNumbers?: boolean) {
@@ -527,7 +530,7 @@ test('props parsing', () => {
         "errors": [
           {
             "line": 8,
-            "message": "Failed to evaluate expression attribute: expression2={Boolean(1)}",
+            "message": "Failed to evaluate expression attribute: expression2={Boolean(1)}. Functions are not supported",
           },
           {
             "line": 8,
@@ -539,7 +542,7 @@ test('props parsing', () => {
           },
           {
             "line": 9,
-            "message": "Failed to evaluate expression attribute: jsx={<SomeComponent />}",
+            "message": "Failed to evaluate expression attribute: jsx={<SomeComponent />}. visitor "JSXElement" is not supported",
           },
           {
             "line": 9,
@@ -2582,11 +2585,11 @@ test('mdx expressions with unsupported functions', () => {
         "errors": [
           {
             "line": 1,
-            "message": "Failed to evaluate expression: Math.max(5, 10)",
+            "message": "Failed to evaluate expression: Math.max(5, 10). Functions are not supported",
           },
           {
             "line": 2,
-            "message": "Failed to evaluate expression: console.log("test")",
+            "message": "Failed to evaluate expression: console.log("test"). Functions are not supported",
           },
         ],
         "html": "<p>Math function: 
@@ -2834,7 +2837,7 @@ test('mdxJsxExpressionAttribute edge cases', () => {
         "errors": [
           {
             "line": 3,
-            "message": "Failed to evaluate expression attribute: ...{null: null, undefined: undefined}",
+            "message": "Failed to evaluate expression attribute: ...{null: null, undefined: undefined}. undefined is undefined",
           },
         ],
         "html": "<h1 title="empty spread">Empty spread</h1><h1 title="null/undefined values">Null/undefined</h1><h1 array="1,2,3" object="[object Object]" title="complex values">Complex types</h1>",
@@ -3094,7 +3097,7 @@ test("jsx components in attributes error handling", () => {
         },
         {
           "line": 3,
-          "message": "Failed to evaluate expression attribute: icon={<UnsupportedComponent />}",
+          "message": "Failed to evaluate expression attribute: icon={<UnsupportedComponent />}. visitor "JSXElement" is not supported",
         },
         {
           "line": 3,
@@ -3310,4 +3313,24 @@ test('addMarkdownLineNumbers works with custom MDX components', () => {
         </Cards>
       </React.Fragment>
     `)
+})
+
+test('jsx component with complex array props should show clear error message', () => {
+    const code = dedent`
+    <Tabs items={invalidFunction()} />
+    `
+    
+    const { errors } = render(code)
+    
+    // Should have error with original error message included
+    expect(errors.length).toBeGreaterThan(0)
+    
+    // Find the error that contains the expression evaluation message
+    const expressionError = errors.find(err => 
+        err.message.includes('Failed to evaluate expression attribute: items={invalidFunction()}')
+    )
+    
+    expect(expressionError).toBeDefined()
+    expect(expressionError!.message).toContain('Functions are not supported')
+    expect(expressionError!.line).toBe(1)
 })

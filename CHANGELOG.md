@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 1.3.1
+
+### Patch Changes
+
+-   Fix error message formatting to avoid duplicate "Error:" prefix. Error messages now display the underlying error message directly without adding an additional "Error:" prefix, making the error messages cleaner and more readable.
+
 ## 1.3.0
 
 ### Minor Changes
