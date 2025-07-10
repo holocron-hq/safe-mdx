@@ -9,11 +9,11 @@ import { MdastToJsx, mdastBfs, type ComponentPropsSchema } from './safe-mdx.js'
 import { completeJsxTags } from './streaming.js'
 
 const components = {
-    Heading({ level, children }) {
-        return <h1>{children}</h1>
+    Heading({ level, children, ...props }) {
+        return <h1 {...props}>{children}</h1>
     },
-    Cards({ level, children }) {
-        return <div>{children}</div>
+    Cards({ level, children, ...props }) {
+        return <div {...props}>{children}</div>
     },
 }
 
@@ -68,7 +68,7 @@ test('markdown inside jsx', () => {
     expect(render(code)).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Hello</h1><h1><p>Component <em>children</em></p></h1><figure><p>some <em>bold</em> content</p></figure>",
+        "html": "<h1>Hello</h1><h1 prop="value"><p>Component <em>children</em></p></h1><figure><p>some <em>bold</em> content</p></figure>",
         "result": <React.Fragment>
           <h1>
             Hello
@@ -114,7 +114,7 @@ test('can complete jsx code with completeJsxTags', () => {
     expect(render(completeJsxTags(code))).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Hello</h1><div><h1></h1></div>",
+        "html": "<h1>Hello</h1><div><h1 prop="value"></h1></div>",
         "result": <React.Fragment>
           <h1>
             Hello
@@ -546,7 +546,7 @@ test('props parsing', () => {
             "message": "Expressions in jsx prop not evaluated: (jsx={<SomeComponent />})",
           },
         ],
-        "html": "<h1><p>hi</p></h1>",
+        "html": "<h1 num="2" doublequote="a &quot; string" quote="a &#x27; string" backTick="some undefined value" expression1="4" someJson="[object Object]"><p>hi</p></h1>",
         "result": <React.Fragment>
           <Heading
             backTick="some undefined value"
@@ -586,7 +586,7 @@ test('jsx attributes with arithmetic expressions', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1></h1>",
+        "html": "<h1 width="200" concat="hello world"></h1>",
         "result": <React.Fragment>
           <Heading
             active={true}
@@ -630,7 +630,7 @@ test('jsx attributes with complex objects and arrays', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1></h1>",
+        "html": "<h1 simpleArray="1,2,3" stringArray="one,two,three" mixedArray="1,two,true," simpleObject="[object Object]" nestedObject="[object Object]" arrayOfObjects="[object Object],[object Object]"></h1>",
         "result": <React.Fragment>
           <Heading
             arrayOfObjects={
@@ -2491,7 +2491,7 @@ test('component props schema validation with zod', () => {
             "schemaPath": "count",
           },
         ],
-        "html": "<h1>Valid heading</h1><div>Valid cards</div><h1>Invalid heading - level too high</h1><div>Invalid cards - negative count</div><div>Invalid cards - wrong type</div>",
+        "html": "<h1 title="test">Valid heading</h1><div count="3" variant="outline">Valid cards</div><h1 title="test">Invalid heading - level too high</h1><div count="-1">Invalid cards - negative count</div><div count="not a number">Invalid cards - wrong type</div>",
         "result": <React.Fragment>
           <Heading
             level={2}
@@ -2620,7 +2620,7 @@ test('schema validation without errors', () => {
     expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Valid heading</h1><h1>Another valid heading</h1>",
+        "html": "<h1 title="test">Valid heading</h1><h1>Another valid heading</h1>",
         "result": <React.Fragment>
           <Heading
             level={2}
@@ -2655,7 +2655,7 @@ test('component without schema should not be validated', () => {
     expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Valid heading with schema</h1><div>Cards without schema - should not be validated</div>",
+        "html": "<h1>Valid heading with schema</h1><div invalidProp="anything">Cards without schema - should not be validated</div>",
         "result": <React.Fragment>
           <Heading
             level={2}
@@ -2705,7 +2705,7 @@ test('validation error includes schema path', () => {
             "schemaPath": "settings.theme",
           },
         ],
-        "html": "<h1>Complex validation</h1>",
+        "html": "<h1 user="[object Object]" settings="[object Object]">Complex validation</h1>",
         "result": <React.Fragment>
           <Heading
             settings={
@@ -2740,7 +2740,7 @@ test('mdxJsxExpressionAttribute spread syntax', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1><p>Content with spread</p></h1>",
+        "html": "<h1 title="test"><p>Content with spread</p></h1>",
         "result": <React.Fragment>
           <Heading
             level={2}
@@ -2783,7 +2783,7 @@ test('mdxJsxExpressionAttribute complex spread cases', () => {
     ).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1><p>Complex spread test</p></h1><div><p>Multiple spreads</p></div>",
+        "html": "<h1 count="42" title="spread title" nested="[object Object]"><p>Complex spread test</p></h1><div style="color:red;font-size:16px" class="test-class" id="test-id"><p>Multiple spreads</p></div>",
         "result": <React.Fragment>
           <Heading
             active={true}
@@ -2837,7 +2837,7 @@ test('mdxJsxExpressionAttribute edge cases', () => {
             "message": "Failed to evaluate expression attribute: ...{null: null, undefined: undefined}",
           },
         ],
-        "html": "<h1>Empty spread</h1><h1>Null/undefined</h1><h1>Complex types</h1>",
+        "html": "<h1 title="empty spread">Empty spread</h1><h1 title="null/undefined values">Null/undefined</h1><h1 array="1,2,3" object="[object Object]" title="complex values">Complex types</h1>",
         "result": <React.Fragment>
           <Heading
             title="empty spread"
@@ -2955,7 +2955,7 @@ test('jsx components in attributes', () => {
     expect(errors).toMatchInlineSnapshot(`[]`)
     
     // Should render correctly
-    expect(html).toMatchInlineSnapshot(`"<h1>JSX Components in Attributes</h1><h1><p>Hello World</p></h1><div><p>Some content</p></div>"`)
+    expect(html).toMatchInlineSnapshot(`"<h1>JSX Components in Attributes</h1><h1 icon="[object Object]"><p>Hello World</p></h1><div items="[object Object]"><p>Some content</p></div>"`)
     
     expect(result).toMatchInlineSnapshot(`
       <React.Fragment>
@@ -3011,7 +3011,7 @@ test('jsx components in attributes with ESM imports', () => {
     expect(errors).toMatchInlineSnapshot(`[]`)
     
     // Should render correctly - ESM components should be wrapped in DynamicEsmComponent
-    expect(html).toMatchInlineSnapshot(`"<h1>ESM Components in Attributes</h1><h1><p>Hello World</p></h1><div><p>Some content</p></div>"`)
+    expect(html).toMatchInlineSnapshot(`"<h1>ESM Components in Attributes</h1><h1 icon="[object Object]"><p>Hello World</p></h1><div actionButton="[object Object]"><p>Some content</p></div>"`)
     
     expect(result).toMatchInlineSnapshot(`
       <React.Fragment>
@@ -3175,6 +3175,7 @@ test('addMarkdownLineNumbers adds data-markdown-line attributes', () => {
           .
         </p>
         <Heading
+          data-markdown-line={5}
           level={2}
         >
           <p
@@ -3247,6 +3248,66 @@ test('addMarkdownLineNumbers adds data-markdown-line attributes', () => {
             </tr>
           </tbody>
         </table>
+      </React.Fragment>
+    `)
+})
+
+test('addMarkdownLineNumbers works with custom MDX components', () => {
+    const code = dedent`
+    # Regular Heading
+
+    <Heading level={1}>
+    Custom component on line 3
+    </Heading>
+
+    Regular paragraph.
+
+    <Cards count={2}>
+    Another custom component on line 9
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code, undefined, false, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Check that custom components have line numbers
+    expect(html).toContain('data-markdown-line="3"')
+    expect(html).toContain('data-markdown-line="9"')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1
+          data-markdown-line={1}
+        >
+          Regular Heading
+        </h1>
+        <Heading
+          data-markdown-line={3}
+          level={1}
+        >
+          <p
+            data-markdown-line={4}
+          >
+            Custom component on line 3
+          </p>
+        </Heading>
+        <p
+          data-markdown-line={7}
+        >
+          Regular paragraph.
+        </p>
+        <Cards
+          count={2}
+          data-markdown-line={9}
+        >
+          <p
+            data-markdown-line={10}
+          >
+            Another custom component on line 9
+          </p>
+        </Cards>
       </React.Fragment>
     `)
 })

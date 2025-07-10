@@ -258,7 +258,7 @@ export class MdastToJsx {
 
                     return this.createElement(
                         Component,
-                        { ...attrs, importUrl, componentName },
+                        this.addLineNumberToProps({ ...attrs, importUrl, componentName }, node),
                         this.mapJsxChildren(node),
                     )
                 } else {
@@ -288,7 +288,7 @@ export class MdastToJsx {
 
                 return this.createElement(
                     Component,
-                    attrs,
+                    this.addLineNumberToProps(attrs, node),
                     this.mapJsxChildren(node),
                 )
             }
