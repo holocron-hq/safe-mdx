@@ -2904,7 +2904,7 @@ test('ESM imports from https URLs', () => {
     
     // Since these are dynamic imports that only work on client, the server render should return null
     const html = renderToStaticMarkup(result)
-    expect(html).toMatchInlineSnapshot(`"<h1>Hello</h1>"`)
+    expect(html).toMatchInlineSnapshot(`"<link href="https://esm.sh" rel="dns-prefetch"/><link rel="preconnect" href="https://esm.sh"/><h1>Hello</h1>"`)
     
     expect(visitor.errors).toEqual([])
 })
