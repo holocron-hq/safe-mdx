@@ -1,19 +1,14 @@
 import React, { Suspense, cloneElement } from 'react'
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type { JSXElement } from 'estree-jsx'
+import Evaluate from 'eval-estree-expression'
 import type { Node, Parent, Root, RootContent } from 'mdast'
 import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
-import type {
-    JSXElement,
-    JSXAttribute,
-    JSXText,
-    JSXExpressionContainer,
-} from 'estree-jsx'
-import Evaluate from 'eval-estree-expression'
 
 import { Fragment, ReactNode } from 'react'
 import { DynamicEsmComponent } from './dynamic-esm-component.js'
-import { parseEsmImports, extractComponentInfo } from './esm-parser.js'
+import { extractComponentInfo, parseEsmImports } from './esm-parser.js'
 
 const HtmlToJsxConverter = React.lazy(() =>
     import('./HtmlToJsxConverter.js').then((module) => ({
@@ -258,7 +253,10 @@ export class MdastToJsx {
 
                     return this.createElement(
                         Component,
-                        this.addLineNumberToProps({ ...attrs, importUrl, componentName }, node),
+                        this.addLineNumberToProps(
+                            { ...attrs, importUrl, componentName },
+                            node,
+                        ),
                         this.mapJsxChildren(node),
                     )
                 } else {
@@ -444,7 +442,11 @@ export class MdastToJsx {
                                 onError({
                                     message: `Failed to evaluate expression attribute: ${attr.value
                                         .replace(/\n+/g, ' ')
-                                        .replace(/ +/g, ' ')}. ${error instanceof Error ? error.message : String(error)}`,
+                                        .replace(/ +/g, ' ')}. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
                                     line: attr.position?.start?.line,
                                 })
                             }
@@ -453,7 +455,11 @@ export class MdastToJsx {
                         onError({
                             message: `Failed to evaluate expression attribute: ${attr.value
                                 .replace(/\n+/g, ' ')
-                                .replace(/ +/g, ' ')}. ${error instanceof Error ? error.message : String(error)}`,
+                                .replace(/ +/g, ' ')}. ${
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error)
+                            }`,
                             line: attr.position?.start?.line,
                         })
                     }
@@ -536,7 +542,13 @@ export class MdastToJsx {
                                 continue
                             } catch (error) {
                                 onError({
-                                    message: `Failed to evaluate expression attribute: ${attr.name}={${v.value}}. ${error instanceof Error ? error.message : String(error)}`,
+                                    message: `Failed to evaluate expression attribute: ${
+                                        attr.name
+                                    }={${v.value}}. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
                                     line: attr.position?.start?.line,
                                 })
                             }
@@ -634,14 +646,26 @@ export class MdastToJsx {
                                 return result
                             } catch (error) {
                                 this.errors.push({
-                                    message: `Failed to evaluate expression: ${node.value}. ${error instanceof Error ? error.message : String(error)}`,
+                                    message: `Failed to evaluate expression: ${
+                                        node.value
+                                    }. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
                                     line: node.position?.start?.line,
                                 })
                             }
                         }
                     } catch (error) {
                         this.errors.push({
-                            message: `Failed to evaluate expression: ${node.value}. ${error instanceof Error ? error.message : String(error)}`,
+                            message: `Failed to evaluate expression: ${
+                                node.value
+                            }. ${
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error)
+                            }`,
                             line: node.position?.start?.line,
                         })
                     }

@@ -1,6 +1,13 @@
 'use client'
 
-import React, { Component, lazy, useState, useSyncExternalStore, Suspense } from 'react'
+import React, {
+    Component,
+    lazy,
+    useState,
+    useSyncExternalStore,
+    Suspense,
+} from 'react'
+import { prefetchDNS, preconnect } from 'react-dom'
 
 // Hook to detect hydration state
 const noop = (callback: () => void) => {
@@ -30,7 +37,11 @@ class EsmErrorBoundary extends Component<
     }
 
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        console.error(`Error loading ESM component ${this.props.componentName}:`, error, errorInfo)
+        console.error(
+            `Error loading ESM component ${this.props.componentName}:`,
+            error,
+            errorInfo,
+        )
     }
 
     render() {
@@ -42,16 +53,30 @@ class EsmErrorBoundary extends Component<
 }
 
 // Dynamic ESM component loader
-export function DynamicEsmComponent({ 
-    importUrl, 
+export function DynamicEsmComponent({
+    importUrl,
     componentName,
-    ...props 
-}: { 
+    ...props
+}: {
     importUrl: string
     componentName: string
-    [key: string]: any 
+    [key: string]: any
 }) {
     const isHydrated = useHydrated()
+
+    // Extract domain from importUrl for resource hints
+    if (importUrl) {
+        try {
+            const url = new URL(importUrl)
+            const domain = url.origin
+            // Prefetch DNS for the domain
+            prefetchDNS(domain)
+            // Preconnect to establish connection early
+            preconnect(domain)
+        } catch (error) {
+            // Invalid URL, skip resource hints
+        }
+    }
     const [LazyComponent] = useState(() => {
         if (typeof window === 'undefined') {
             return null
@@ -61,11 +86,16 @@ export function DynamicEsmComponent({
                 const module = await import(/* @vite-ignore */ importUrl)
                 const Component = module[componentName] || module.default
                 if (!Component) {
-                    throw new Error(`Component "${componentName}" not found in module ${importUrl}`)
+                    throw new Error(
+                        `Component "${componentName}" not found in module ${importUrl}`,
+                    )
                 }
                 return { default: Component }
             } catch (error) {
-                console.error(`Failed to load ESM component from ${importUrl}:`, error)
+                console.error(
+                    `Failed to load ESM component from ${importUrl}:`,
+                    error,
+                )
                 throw error
             }
         })
