@@ -3334,3 +3334,34 @@ test('jsx component with complex array props should show clear error message', (
     expect(expressionError!.message).toContain('Functions are not supported')
     expect(expressionError!.line).toBe(1)
 })
+
+test('override renderNode to wrap bold text in colored span', () => {
+    const code = dedent`
+    This is **bold text** and this is regular text.
+    
+    Another line with **more bold** content.
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ 
+        markdown: code, 
+        mdast, 
+        components,
+        renderNode: (node, transform) => {
+            if (node.type === 'strong') {
+                return (
+                    <span style={{ color: 'red', fontWeight: 'bold' }}>
+                        {node.children?.map(child => transform(child))}
+                    </span>
+                )
+            }
+            // Return undefined to use default rendering
+            return undefined
+        }
+    })
+    
+    const result = visitor.run()
+    const html = renderToStaticMarkup(result)
+    
+    expect(html).toMatchInlineSnapshot(`"<p>This is <span style="color:red;font-weight:bold">bold text</span> and this is regular text.</p><p>Another line with <span style="color:red;font-weight:bold">more bold</span> content.</p>"`)
+})
