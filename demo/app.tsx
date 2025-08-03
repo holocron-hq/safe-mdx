@@ -27,7 +27,7 @@ console.log(greeting)
 
 Here's an example of an ESM component loaded from a URL:
 
-<IOKnob />
+<IOKnob className='flex flex-col w-full mx-auto' />
 
 ## Lists
 
