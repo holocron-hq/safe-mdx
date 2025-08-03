@@ -2,21 +2,20 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from './app'
 
-async function setupImportMap() {
-    const [reactMod, reactDomMod, jsxRuntimeMod] = await Promise.all([
-        import('./import-map/react'),
-        import('./import-map/react-dom'),
-        import('./import-map/react/jsx-runtime'),
-    ])
+import reactMod from './import-map/react?url'
+import reactDomMod from './import-map/react-dom?url'
+import jsxRuntimeMod from './import-map/react/jsx-runtime?url'
 
+function setupImportMap() {
     const mapScript = document.createElement('script')
     mapScript.type = 'importmap'
     mapScript.textContent = JSON.stringify(
         {
             imports: {
-                react: reactMod.url,
-                'react-dom': reactDomMod.url,
-                'react/jsx-runtime': jsxRuntimeMod.url,
+                react: new URL(reactMod, import.meta.url).href,
+                'react-dom': new URL(reactDomMod, import.meta.url).href,
+                'react/jsx-runtime': new URL(jsxRuntimeMod, import.meta.url)
+                    .href,
                 'framer-motion': 'https://esm.sh/framer-motion?external=react',
                 '@motionone/dom':
                     'https://esm.sh/@motionone/dom?external=react',
@@ -26,6 +25,7 @@ async function setupImportMap() {
         null,
         2,
     )
+    console.log(mapScript.textContent)
     document.head.append(mapScript)
 }
 setupImportMap()
