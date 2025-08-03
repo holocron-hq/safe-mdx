@@ -1,0 +1,26 @@
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { App } from './app'
+
+const mapScript = document.createElement('script')
+mapScript.type = 'importmap'
+mapScript.textContent = JSON.stringify(
+    {
+        imports: {
+            react: (await import('./import-map/react')).url,
+            'react-dom': (await import('./import-map/react-dom')).url,
+            'react/jsx-runtime': (
+                await import('./import-map/react/jsx-runtime')
+            ).url,
+
+            'framer-motion': 'https://esm.sh/framer-motion?external=react',
+            '@motionone/dom': 'https://esm.sh/@motionone/dom?external=react',
+            framer: 'https://esm.sh/unframer@latest/esm/framer.js?external=react',
+        },
+    },
+    null,
+    2,
+)
+document.head.append(mapScript)
+
+ReactDOM.createRoot(document.getElementById('root')!).render(<App />)
