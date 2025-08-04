@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import react from '@vitejs/plugin-react'
 import * as path from 'path'
+import { defineConfig } from 'vite'
 
-import type { Plugin, UserConfig } from 'vite'
+import type { Plugin } from 'vite'
 
 interface ImportMapPluginOptions {
     imports: Record<string, string>
