@@ -23,6 +23,7 @@
         "test": "vitest",
         "prepublishOnly": "pnpm build",
         "demo": "vite",
+        "start": "vite preview",
         "deploy-demo": "vite build && npx -y wrangler pages deploy",
         "demo:build": "vite build"
     },
