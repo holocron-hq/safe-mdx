@@ -63,6 +63,7 @@
         "@vitejs/plugin-react": "^4.7.0",
         "@vitest/coverage-v8": "^1.6.0",
         "dedent": "^1.5.1",
+        "importmap-vite-plugin": "^0.0.0",
         "mdast-util-mdx-jsx": "^3.2.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
