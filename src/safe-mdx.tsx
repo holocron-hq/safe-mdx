@@ -1063,6 +1063,7 @@ const nativeTags = [
     'progress',
     'summary',
     'time',
+    'figcaption',
 ] as const
 
 type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & {
