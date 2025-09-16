@@ -7,10 +7,10 @@ import type {
 import type { DefaultTreeAdapterTypes as pt, Token } from 'parse5'
 import { parseFragment } from 'parse5'
 import type { Processor } from 'unified'
-import { convertAttributeNameToJSX } from './convert-attributes'
+import { convertAttributeNameToJSX } from './convert-attributes.js'
 
 // Re-export the normalize plugin
-export { default as remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize'
+export { default as remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize.js'
 
 // Type for processor that can parse markdown to AST
 type MarkdownProcessor = Processor<Root, Root, Root, undefined, undefined>
@@ -212,6 +212,16 @@ function htmlNodeToMdxAst(
 
     const convertTagNameFn = options?.convertTagName || defaultConvertTagName
     const componentName = convertTagNameFn({ tagName: node.tagName })
+
+    // If convertTagName returns empty string, skip this element and only return its children
+    if (componentName === '') {
+        // Process children but skip the element wrapper
+        const children: RootContent[] = node.childNodes.flatMap((child) => {
+            const result = htmlNodeToMdxAst(child, options)
+            return Array.isArray(result) ? result : [result]
+        })
+        return children
+    }
 
     // Convert attributes
     const attributes: MdxJsxAttribute[] = node.attrs.map((attr) =>

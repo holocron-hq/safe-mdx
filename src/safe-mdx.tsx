@@ -1,4 +1,4 @@
-import React, { Suspense, cloneElement } from 'react'
+import React, { cloneElement } from 'react'
 
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import type { JSXElement } from 'estree-jsx'
@@ -9,12 +9,8 @@ import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 import { Fragment, ReactNode } from 'react'
 import { DynamicEsmComponent } from './dynamic-esm-component.js'
 import { extractComponentInfo, parseEsmImports } from './esm-parser.js'
-
-const HtmlToJsxConverter = React.lazy(() =>
-    import('./HtmlToJsxConverter.js').then((module) => ({
-        default: module.HtmlToJsxConverter,
-    })),
-)
+import { htmlToMdxAst } from './html/html-to-mdx-ast.js'
+import { validHtmlElements, nativeTags } from './html/valid-html-elements.js'
 
 export type MyRootContent = RootContent | Root
 
@@ -932,15 +928,26 @@ export class MdastToJsx {
                     return []
                 }
 
-                return this.createElement(
-                    Suspense,
-                    { fallback: null },
-                    this.createElement(HtmlToJsxConverter, {
-                        htmlText: text,
-                        instance: this,
-                        node,
-                    }),
-                )
+                // Parse HTML to MDX AST using the new approach
+                const mdxAst = htmlToMdxAst({
+                    html: text,
+                    convertTagName: ({ tagName }) => {
+                        const lowerTag = tagName.toLowerCase()
+                        // Only keep valid HTML elements
+                        if (validHtmlElements.has(lowerTag)) {
+                            return lowerTag
+                        }
+                        // Return empty string for non-HTML elements
+                        return ''
+                    }
+                })
+
+                // Process the MDX AST nodes
+                if (Array.isArray(mdxAst)) {
+                    return mdxAst.map(child => this.mdastTransformer(child))
+                } else {
+                    return this.mdastTransformer(mdxAst)
+                }
             }
             case 'imageReference': {
                 return []
@@ -1001,70 +1008,6 @@ function safeJsonParse(str: string) {
         return null
     }
 }
-
-const nativeTags = [
-    'blockquote',
-    'strong',
-    'em',
-    'del',
-    'hr',
-    'a',
-    'b',
-    'br',
-    'button',
-    'div',
-    'form',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'head',
-    'iframe',
-    'img',
-    'input',
-    'label',
-    'li',
-    'link',
-    'ol',
-    'p',
-    'path',
-    'picture',
-    'script',
-    'section',
-    'source',
-    'span',
-    'sub',
-    'sup',
-    'svg',
-    'table',
-    'tbody',
-    'td',
-    'tfoot',
-    'th',
-    'thead',
-    'tr',
-    'ul',
-    'video',
-    'code',
-    'pre',
-    'figure',
-    'canvas',
-    'details',
-    'dl',
-    'dt',
-    'dd',
-    'fieldset',
-    'footer',
-    'header',
-    'legend',
-    'main',
-    'mark',
-    'nav',
-    'progress',
-    'summary',
-    'time',
-    'figcaption',
-] as const
 
 type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & {
     [key: string]: any

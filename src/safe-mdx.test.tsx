@@ -1,5 +1,4 @@
 import dedent from 'dedent'
-import { htmlToJsx } from 'html-to-jsx-transform'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
@@ -29,16 +28,6 @@ function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEs
     return { result, errors: visitor.errors || [], html }
 }
 
-test('htmlToJsx', () => {
-    expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
-    expect(htmlToJsx('<p>text</p>')).toMatchInlineSnapshot(`"<p>text</p>"`)
-    expect(htmlToJsx('before <p>text</p>')).toMatchInlineSnapshot(
-        `"<>before <p>text</p></>"`,
-    )
-    expect(htmlToJsx('<nonexisting>text</nonexisting>')).toMatchInlineSnapshot(
-        `"<nonexisting>text</nonexisting>"`,
-    )
-})
 
 test('reference links with titles', () => {
     const code = dedent`
@@ -2266,6 +2255,66 @@ test('kitchen sink', () => {
           </pre>
         </React.Fragment>,
       }
+    `)
+})
+
+test('mdx jsx with unknown components are ignored', () => {
+    // Note: In MDX, <custom-element> is treated as MDX JSX, not raw HTML
+    // Unknown JSX components are ignored completely (including their content)
+    const code = dedent`
+    # Heading with JSX
+    
+    This is a paragraph with some JSX components.
+    
+    <div>This is a valid div</div>
+    
+    <CustomElement>This unknown component should be ignored</CustomElement>
+    
+    <span className="highlight">This span is valid</span>
+    
+    <AnotherUnknown>Another unknown component content</AnotherUnknown>
+    
+    More text after JSX.
+    `
+    
+    const { html, result, errors } = render(code)
+    
+    // Check that valid HTML elements are present
+    expect(html).toContain('<div>This is a valid div</div>')
+    expect(html).toContain('<span')
+    expect(html).toContain('This span is valid</span>')
+    
+    // Check that unknown components are completely ignored
+    expect(html).not.toContain('CustomElement')
+    expect(html).not.toContain('AnotherUnknown')
+    expect(html).not.toContain('This unknown component should be ignored')
+    expect(html).not.toContain('Another unknown component content')
+    
+    // Check that errors were generated for unknown components
+    expect(errors).toHaveLength(2)
+    expect(errors[0].message).toContain('Unsupported jsx component CustomElement')
+    expect(errors[1].message).toContain('Unsupported jsx component AnotherUnknown')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          Heading with JSX
+        </h1>
+        <p>
+          This is a paragraph with some JSX components.
+        </p>
+        <div>
+          This is a valid div
+        </div>
+        <span
+          className="highlight"
+        >
+          This span is valid
+        </span>
+        <p>
+          More text after JSX.
+        </p>
+      </React.Fragment>
     `)
 })
 

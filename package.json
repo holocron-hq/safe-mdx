@@ -40,16 +40,20 @@
         "react": "*"
     },
     "dependencies": {
+        "@babel/parser": "^7.28.0",
+        "@babel/types": "^7.28.2",
         "@standard-schema/spec": "^1.0.0",
         "collapse-white-space": "^2.1.0",
         "eval-estree-expression": "^3.0.0",
-        "html-to-jsx-transform": "^1.0.0",
+        "parse5": "^7.2.1",
         "remark": "^15.0.1",
         "remark-frontmatter": "^5.0.0",
         "remark-gfm": "^4.0.0",
         "remark-mdx": "^3.0.0",
+        "style-to-object": "^1.0.8",
         "unified": "^11.0.5",
-        "unist-util-visit": "^5.0.0"
+        "unist-util-visit": "^5.0.0",
+        "unist-util-visit-parents": "^6.0.1"
     },
     "devDependencies": {
         "@changesets/cli": "^2.28.1",
@@ -67,6 +71,8 @@
         "mdast-util-mdx-jsx": "^3.2.0",
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
+        "remark-parse": "^11.0.0",
+        "remark-stringify": "^11.0.0",
         "tailwindcss": "^4.1.11",
         "typescript": "5.8.3",
         "vite": "^6.2.6",
