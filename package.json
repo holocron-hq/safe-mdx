@@ -57,7 +57,6 @@
         "remark-mdx": "^3.0.0",
         "style-to-object": "^1.0.8",
         "unified": "^11.0.5",
-        "unist": "^0.0.1",
         "unist-util-visit": "^5.0.0",
         "unist-util-visit-parents": "^6.0.1"
     },
@@ -70,6 +69,7 @@
         "@types/node": "^22.15.17",
         "@types/react": "^19.1.8",
         "@types/react-dom": "^19.1.6",
+        "@types/unist": "^3.0.3",
         "@vitejs/plugin-react": "^4.7.0",
         "@vitest/coverage-v8": "^1.6.0",
         "dedent": "^1.5.1",
