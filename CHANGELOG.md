@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 1.3.8
+
+### Patch Changes
+
+- Add parentType prop to normalize jsx flow and text elements nodes
+
 ## 1.3.7
 
 ### Patch Changes
