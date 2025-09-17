@@ -11,14 +11,13 @@ import { parseHTML } from './domparser.js'
 // Re-export the normalize plugin
 export { default as remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize.js'
 
-// Type for processor that can parse markdown to AST
-type MarkdownProcessor = Processor<Root, Root, Root, undefined, undefined>
-
 // Type for converting tag names
 export type ConvertTagName = (args: { tagName: string }) => string
 
-// Type for converting text to mdast nodes
-export type TextToMdast = (args: { text: string }) => string
+// Type for converting text to mdast nodes - now returns AST nodes directly
+export type TextToMdast = (args: {
+    text: string
+}) => RootContent | RootContent[]
 
 // Type for converting attribute values
 export type ConvertAttributeValue = (args: {
@@ -30,7 +29,6 @@ export type ConvertAttributeValue = (args: {
 // Options for parsing HTML to MDX AST
 export interface ParseHtmlToMdxAstOptions {
     html: string
-    processor?: MarkdownProcessor
     onError?: (error: unknown, text: string) => void
     convertTagName?: ConvertTagName
     textToMdast?: TextToMdast
@@ -53,11 +51,6 @@ function isElementNode(node: Node): node is Element {
 // Default tag name converter (no transformation)
 function defaultConvertTagName({ tagName }: { tagName: string }): string {
     return tagName.toLowerCase()
-}
-
-// Default text to mdast converter (no transformation)
-function defaultTextToMdast({ text }: { text: string }): string {
-    return text
 }
 
 // Default attribute value converter (no transformation)
@@ -175,33 +168,29 @@ function htmlNodeToMdxAst(
 
     if (isTextNode(node)) {
         const textValue = node.textContent || ''
-        // If we have a processor, parse the text as markdown
-        if (options?.processor && textValue.trim()) {
+
+        // If we have a textToMdast converter, use it
+        if (options?.textToMdast) {
             try {
-                // Apply text transformation before parsing markdown
-                const textToMdast = options.textToMdast || defaultTextToMdast
-                const preprocessed = textToMdast({ text: textValue })
-                const mdast = options.processor.parse(preprocessed) as Root
-                options.processor.runSync(mdast)
-                // Return the children of the root node, which are the actual content nodes
-                return mdast.children as RootContent[]
+                const result = options.textToMdast({ text: textValue })
+                return result
             } catch (error) {
                 // Call onError callback if provided, otherwise log
                 if (options.onError) {
                     options.onError(error, textValue)
                 } else {
-                    console.error(
-                        'Failed to parse markdown in HTML text node:',
-                        error,
-                    )
+                    console.error('Failed to convert text to mdast:', error)
                     console.error('Text content:', textValue)
                 }
+                // Fallback to simple text node
                 return {
                     type: 'text',
                     value: textValue,
                 } satisfies MdastText
             }
         }
+
+        // Default: return simple text node
         return {
             type: 'text',
             value: textValue,
@@ -270,19 +259,20 @@ export function htmlToMdxAst(
     // - If input is a fragment (like "<div>Hello</div>"), the content becomes direct children of document
     // - If input has body tag, it creates proper body element
     // - We need to handle both cases
-    
-    // linkedom behavior: 
+
+    // linkedom behavior:
     // - When parsing fragments, content becomes direct children of document
     // - Accessing document.body on fragments auto-creates HEAD and BODY as children
     // - We must avoid accessing document.body to prevent this
-    
+
     // Just use document's direct children and filter for relevant nodes
-    const childNodes = Array.from(document.childNodes).filter(node => 
-        node.nodeType === 1 || // Element nodes
-        node.nodeType === 3 || // Text nodes
-        node.nodeType === 8    // Comment nodes
+    const childNodes = Array.from(document.childNodes).filter(
+        (node) =>
+            node.nodeType === 1 || // Element nodes
+            node.nodeType === 3 || // Text nodes
+            node.nodeType === 8, // Comment nodes
     )
-    
+
     if (childNodes.length === 0) {
         return []
     }
