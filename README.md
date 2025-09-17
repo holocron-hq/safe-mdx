@@ -13,21 +13,21 @@
 -   Render MDX without `eval` on the server, so you can render MDX in Cloudflare Workers and Vercel Edge
 -   Works with React Server Components
 -   Supports custom MDX components
--   custom `createElement`. Pass a no-op function to use safe-mdx as a validation step.
--   use `componentPropsSchema` to validate component props against a schema (works with Zod, Valibot, etc).
+-   Custom `createElement`. Pass a no-op function to use safe-mdx as a validation step.
+-   Use `componentPropsSchema` to validate component props against a schema (works with Zod, Valibot, etc).
 -   ESM `https://` imports support with `allowClientEsmImports` option (disabled by default for security)
--   fast. 3ms to render the [full mdx document for Zod v3](https://github.com/colinhacks/zod/blob/0a49fa39348b7c72b19ddedc3b0f879bd395304b/packages/docs/content/packages/v3.mdx) (2500 lines)
+-   Fast. 3ms to render the [full mdx document for Zod v3](https://github.com/colinhacks/zod/blob/0a49fa39348b7c72b19ddedc3b0f879bd395304b/packages/docs/content/packages/v3.mdx) (2500 lines)
 
 ## Why
 
-The default MDX renderer uses `eval` (or `new Function(code)`) to render MDX components in the server. This is a security risk if the MdX code comes from untrusted sources and it's not allowed in some environments like Cloudflare Workers.
+The default MDX renderer uses `eval` (or `new Function(code)`) to render MDX components in the server. This is a security risk if the MDX code comes from untrusted sources and it's not allowed in some environments like Cloudflare Workers.
 
-For example in an hypothetical platform similar to Notion, where users can write Markdown and publish it as a website, an user could be able to write MDX code that extracts secrets from the server in the SSR pass, using this library that is not possible. This is what happened with Mintlify platform in 2024.
+For example in a hypothetical platform similar to Notion, where users can write Markdown and publish it as a website, a user could be able to write MDX code that extracts secrets from the server in the SSR pass, using this library that is not possible. This is what happened with Mintlify platform in 2024.
 
 Some use cases for this package are:
 
 -   Render MDX in Cloudflare Workers and Vercel Edge
--   Safely render dynamically generated MDX code, like inside a ChatGPT like interface
+-   Safely render dynamically generated MDX code, like inside a ChatGPT-style interface
 -   Render user generated MDX, like in a multi-tenant SaaS app
 
 <br>
@@ -217,7 +217,7 @@ export function Page() {
 
 ## Reading the frontmatter
 
-safe-mdx renderer ignores the frontmatter, to get its values you wil have to parse the MDX to mdast and read it there.
+safe-mdx renderer ignores the frontmatter, to get its values you will have to parse the MDX to mdast and read it there.
 
 ```tsx
 import { SafeMdxRenderer } from 'safe-mdx'
@@ -253,9 +253,9 @@ export function Page() {
 
 ## Override code block component
 
-It's not pratical to override the code block component using `code` as a component override, because it will also be used for inline code blocks. It also does not have access to meta string and language.
+It's not practical to override the code block component using `code` as a component override, because it will also be used for inline code blocks. It also does not have access to meta string and language.
 
-Instead you can use `renderNode` to return some jsx for a specific mdast node:
+Instead you can use `renderNode` to return some JSX for a specific mdast node:
 
 ```tsx
 <SafeMdxRenderer
@@ -301,15 +301,15 @@ safe-mdx is designed to avoid server-side evaluation of untrusted MDX input.
 
 However, it's important to note that safe-mdx does not provide protection against client-side vulnerabilities, such as Cross-Site Scripting (XSS) or script injection attacks. While safe-mdx itself does not perform any evaluation or rendering of user-provided content, the rendering library or components used in conjunction with safe-mdx may introduce security risks if not properly configured or sanitized.
 
-This is ok if you render your MDX in isolation from each tenant, for example on different subdomains, this way an XSS attack cannot affect all tenants. If instead you render the MDX from different tenants on the same domain, one tenant could steal cookies set from other customers.
+This is okay if you render your MDX in isolation from each tenant - for example on different subdomains - because an XSS attack cannot affect all tenants. But if instead you render the MDX from different tenants on the same domain, one tenant could steal cookies set from other customers.
 
 ## Limitations
 
 These features are not supported yet:
 
--   expressions that use methods or functions, currently expressions are evaluated with [eval-estree-expression](https://github.com/jonschlinkert/eval-estree-expression) with the functions option disabled.
--   importing components or data from other files (unless `allowClientEsmImports` is enabled for https:// imports).
--   Exporting irresolvable or declaring components inline in the MDX
+-   Expressions that use methods or functions, currently expressions are evaluated with [eval-estree-expression](https://github.com/jonschlinkert/eval-estree-expression) with the functions option disabled.
+-   Importing components or data from other files (unless `allowClientEsmImports` is enabled for `https://` imports).
+-   Exporting unresolved components or declaring components inline in the MDX
 
 **Note**: JSX components in attributes are now supported! You can use React components inside attributes like `<Card icon={<Icon />}>` without relying on JavaScript evaluation.
 
@@ -317,4 +317,4 @@ To overcome the remaining limitations you can define custom logic in your compon
 
 ## Future Roadmap
 
--   add support for scope parameter to allow referencing variables in expressions and code
+-   Add support for scope parameter to allow referencing variables in expressions and code
