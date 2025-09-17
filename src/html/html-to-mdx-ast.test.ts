@@ -124,7 +124,7 @@ describe('parseHtmlToMdxAst', () => {
               "children": [
                 {
                   "type": "text",
-                  "value": "Hello ",
+                  "value": "Hello",
                 },
                 {
                   "attributes": [],
@@ -202,7 +202,7 @@ describe('parseHtmlToMdxAst', () => {
           [
             {
               "type": "text",
-              "value": "Some text ",
+              "value": "Some text",
             },
             {
               "attributes": [],
@@ -217,7 +217,7 @@ describe('parseHtmlToMdxAst', () => {
             },
             {
               "type": "text",
-              "value": " more text",
+              "value": "more text",
             },
           ]
         `)
@@ -374,6 +374,302 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
             type: 'mdxJsxTextElement',
             name: 'span'
         })
+    })
+
+    test('handles indented HTML without preserving indentation', () => {
+        const indentedHtml = `
+        <columns>
+            <column>
+                <page url="https://notion.so/page1">Page 1</page>
+                Some text
+            </column>
+            <column>
+                <callout icon="💡" color="yellow_bg">
+                    Important callout
+                </callout>
+            </column>
+        </columns>`
+        
+        const result = parseHtmlToMdxAst({ html: indentedHtml })
+        expect(result).toMatchInlineSnapshot(`
+          [
+            {
+              "attributes": [],
+              "children": [
+                {
+                  "attributes": [],
+                  "children": [
+                    {
+                      "attributes": [
+                        {
+                          "name": "url",
+                          "type": "mdxJsxAttribute",
+                          "value": "https://notion.so/page1",
+                        },
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Page 1",
+                        },
+                      ],
+                      "name": "page",
+                      "type": "mdxJsxTextElement",
+                    },
+                    {
+                      "type": "text",
+                      "value": "Some text",
+                    },
+                  ],
+                  "name": "column",
+                  "type": "mdxJsxTextElement",
+                },
+                {
+                  "attributes": [],
+                  "children": [
+                    {
+                      "attributes": [
+                        {
+                          "name": "icon",
+                          "type": "mdxJsxAttribute",
+                          "value": "💡",
+                        },
+                        {
+                          "name": "color",
+                          "type": "mdxJsxAttribute",
+                          "value": "yellow_bg",
+                        },
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "Important callout",
+                        },
+                      ],
+                      "name": "callout",
+                      "type": "mdxJsxTextElement",
+                    },
+                  ],
+                  "name": "column",
+                  "type": "mdxJsxTextElement",
+                },
+              ],
+              "name": "columns",
+              "type": "mdxJsxTextElement",
+            },
+          ]
+        `)
+    })
+
+    test('handles indented HTML with textToMdast', () => {
+        const indentedHtml = `
+        <div>
+            **Bold text** and
+            some regular text
+        </div>`
+        
+        const receivedTexts: string[] = []
+        const textToMdast = ({ text }: { text: string }) => {
+            receivedTexts.push(text)
+            return [{ type: 'text', value: text } as RootContent]
+        }
+        
+        const result = parseHtmlToMdxAst({ 
+            html: indentedHtml,
+            textToMdast
+        })
+        
+        expect(result).toMatchInlineSnapshot(`
+          [
+            {
+              "attributes": [],
+              "children": [
+                {
+                  "type": "text",
+                  "value": "**Bold text** and
+          some regular text",
+                },
+              ],
+              "name": "div",
+              "type": "mdxJsxTextElement",
+            },
+          ]
+        `)
+        
+        expect(receivedTexts).toMatchInlineSnapshot(`
+          [
+            "**Bold text** and
+          some regular text",
+          ]
+        `)
+    })
+
+    test('handles multi-line indented text content', () => {
+        const htmlWithMultiLineText = `
+            <div>
+                This is a multi-line string
+                that has indentation on each line
+                and should be properly de-indented
+                
+                Even with blank lines in between
+                it should maintain the structure
+            </div>`
+        
+        const receivedTexts: string[] = []
+        const textToMdast = ({ text }: { text: string }) => {
+            receivedTexts.push(text)
+            return [{ type: 'text', value: text } as RootContent]
+        }
+        
+        const result = parseHtmlToMdxAst({ 
+            html: htmlWithMultiLineText,
+            textToMdast
+        })
+        
+        expect(result).toMatchInlineSnapshot(`
+          [
+            {
+              "attributes": [],
+              "children": [
+                {
+                  "type": "text",
+                  "value": "This is a multi-line string
+          that has indentation on each line
+          and should be properly de-indented
+          
+          Even with blank lines in between
+          it should maintain the structure",
+                },
+              ],
+              "name": "div",
+              "type": "mdxJsxTextElement",
+            },
+          ]
+        `)
+        
+        expect(receivedTexts).toMatchInlineSnapshot(`
+          [
+            "This is a multi-line string
+          that has indentation on each line
+          and should be properly de-indented
+          
+          Even with blank lines in between
+          it should maintain the structure",
+          ]
+        `)
+    })
+
+    test('handles multi-line text with markdown', () => {
+        const htmlWithMultiLineText = `
+            <article>
+                # Heading
+                
+                This is a paragraph with **bold** text
+                that spans multiple lines and has
+                markdown formatting.
+                
+                - List item 1
+                - List item 2
+            </article>`
+        
+        const receivedTexts: string[] = []
+        const textToMdast = ({ text }: { text: string }) => {
+            receivedTexts.push(text)
+            return [{ type: 'text', value: text } as RootContent]
+        }
+        
+        const result = parseHtmlToMdxAst({ 
+            html: htmlWithMultiLineText,
+            textToMdast
+        })
+        
+        expect(result).toMatchInlineSnapshot(`
+          [
+            {
+              "attributes": [],
+              "children": [
+                {
+                  "type": "text",
+                  "value": "# Heading
+          
+          This is a paragraph with **bold** text
+          that spans multiple lines and has
+          markdown formatting.
+          
+          - List item 1
+          - List item 2",
+                },
+              ],
+              "name": "article",
+              "type": "mdxJsxTextElement",
+            },
+          ]
+        `)
+        
+        expect(receivedTexts).toMatchInlineSnapshot(`
+          [
+            "# Heading
+          
+          This is a paragraph with **bold** text
+          that spans multiple lines and has
+          markdown formatting.
+          
+          - List item 1
+          - List item 2",
+          ]
+        `)
+    })
+
+    test('preserves relative indentation when deindenting', () => {
+        const htmlWithRelativeIndent = `
+            <pre>
+                function example() {
+                    if (true) {
+                        console.log('nested');
+                    }
+                }
+            </pre>`
+        
+        const receivedTexts: string[] = []
+        const textToMdast = ({ text }: { text: string }) => {
+            receivedTexts.push(text)
+            return [{ type: 'text', value: text } as RootContent]
+        }
+        
+        const result = parseHtmlToMdxAst({ 
+            html: htmlWithRelativeIndent,
+            textToMdast
+        })
+        
+        expect(result).toMatchInlineSnapshot(`
+          [
+            {
+              "attributes": [],
+              "children": [
+                {
+                  "type": "text",
+                  "value": "function example() {
+              if (true) {
+                  console.log('nested');
+              }
+          }",
+                },
+              ],
+              "name": "pre",
+              "type": "mdxJsxTextElement",
+            },
+          ]
+        `)
+        
+        expect(receivedTexts).toMatchInlineSnapshot(`
+          [
+            "function example() {
+              if (true) {
+                  console.log('nested');
+              }
+          }",
+          ]
+        `)
     })
 
     test('applies normalize plugin with parentType', () => {

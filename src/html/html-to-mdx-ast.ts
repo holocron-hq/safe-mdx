@@ -67,6 +67,32 @@ function defaultConvertAttributeValue({
     return value
 }
 
+// Remove common indentation from multi-line text while preserving relative indentation
+function deindent(text: string): string {
+    const lines = text.split('\n')
+    
+    // Find minimum indentation (excluding empty lines)
+    let minIndent = Infinity
+    for (const line of lines) {
+        if (line.trim()) {
+            const match = line.match(/^(\s*)/)
+            if (match) {
+                minIndent = Math.min(minIndent, match[1].length)
+            }
+        }
+    }
+    
+    // If no indentation found, return as is
+    if (minIndent === 0 || minIndent === Infinity) {
+        return text
+    }
+    
+    // Remove common indentation from each line, preserving relative indentation
+    return lines
+        .map(line => line.slice(minIndent))
+        .join('\n')
+}
+
 // Convert HTML attribute to MDX JSX attribute
 function convertAttribute(
     attr: Attr,
@@ -170,7 +196,29 @@ function htmlNodeToMdxAst(
     }
 
     if (isTextNode(node)) {
-        const textValue = node.textContent || ''
+        let textValue = node.textContent || ''
+        
+        // Skip whitespace-only nodes between elements
+        if (!textValue.trim()) {
+            const prevSibling = node.previousSibling
+            const nextSibling = node.nextSibling
+            
+            // If between elements and contains newlines, it's likely formatting
+            if (textValue.includes('\n') && 
+                ((prevSibling && isElementNode(prevSibling)) ||
+                 (nextSibling && isElementNode(nextSibling)))) {
+                return []
+            }
+            // Otherwise preserve the whitespace (could be intentional space)
+        }
+        
+        // Always deindent text content
+        textValue = deindent(textValue).trim()
+        
+        // Skip empty text after processing
+        if (!textValue) {
+            return []
+        }
 
         // If we have a textToMdast converter, use it
         if (options?.textToMdast) {
