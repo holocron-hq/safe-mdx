@@ -10,12 +10,12 @@ import { Root, RootContent } from 'mdast'
 import { remark } from 'remark'
 import { visit } from 'unist-util-visit'
 
-/** Template literal for auto formatting */
+/** Template literal for auto formatting with dedent */
 function html(
     strings: TemplateStringsArray,
     ...expressions: unknown[]
 ): string {
-    // Join all string parts, then dedent
+    // Join all string parts
     let raw = strings[0] ?? ''
 
     for (let i = 1, l = strings.length; i < l; i++) {
@@ -35,7 +35,8 @@ function html(
     // Remove the common indent from all lines
     const dedented = lines.map((line) => line.slice(minIndent)).join('\n')
 
-    return dedented
+    // Trim leading/trailing newlines
+    return dedented.trim()
 }
 
 // Helper to convert HTML to MDX string
@@ -96,59 +97,99 @@ async function htmlToMdxString({
 }
 
 describe('Notion-specific HTML to MDX', () => {
-    test('converts page element to MDX', async () => {
-        const htmlToConvert = html`<page url="{{https://notion.so/test}}"
-            >Test Page</page
-        >`
+    test('converts page element to MDX with surrounding markdown', async () => {
+        const htmlContent = html`
+            <page url="{{https://notion.so/test}}">
+                Test Page
+            </page>
+        `
+
+        const markdown = `
+# My Document
+
+${htmlContent}
+
+Some text after the page element.
+`
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<page url="{{https://notion.so/test}}" />Test Page
+          "# My Document
+
+          <page url="{{https://notion.so/test}}">
+            Test Page
+          </page>
+
+          Some text after the page element.
           "
         `)
     })
 
-    test('converts callout element to MDX', async () => {
-        const htmlToConvert = html`<callout icon="📎" color="pink_bg"
-            >Important note</callout
-        >`
+    test('converts callout element to MDX with surrounding content', async () => {
+        const htmlContent = html`
+            <callout icon="📎" color="pink_bg">
+                Important note
+            </callout>
+        `
+
+        const markdown = `
+Here's an important message:
+
+${htmlContent}
+
+**Bold text** after the callout.
+`
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<callout icon="📎" color="pink_bg" />Important note
+          "Here's an important message:
+
+          <callout icon="📎" color="pink_bg">
+            Important note
+          </callout>
+
+          **Bold text** after the callout.
           "
         `)
     })
 
-    test('converts mention-page element to MDX', async () => {
-        const htmlToConvert = html`<mention-page
-            url="{{https://notion.so/test}}"
-        />`
+    test('converts mention-page element to MDX with mixed content', async () => {
+        const htmlContent = html`
+            <mention-page url="{{https://notion.so/test}}" />
+        `
+
+        const markdown = `Check out this page: ${htmlContent} for more information.
+
+- First item
+- Second item`
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<mention-page url="{{https://notion.so/test}}" />
+          "Check out this page: <mention-page url="{{https://notion.so/test}}" /> for more information.
+
+          * First item
+          * Second item
           "
         `)
     })
 
     test('converts nested Notion elements to MDX', async () => {
-        const htmlToConvert = html`
+        const htmlContent = html`
             <columns>
                 <column>
                     <page url="{{https://notion.so/page1}}">Page 1</page>
@@ -163,7 +204,7 @@ describe('Notion-specific HTML to MDX', () => {
         `
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -188,22 +229,32 @@ describe('Notion-specific HTML to MDX', () => {
         `)
     })
 
-    test('handles mixed HTML and Notion elements', async () => {
-        const htmlToConvert = html`<div>
-            <h1>Title</h1>
-            <page url="{{https://notion.so/test}}">Test Page</page>
-            <p>Regular paragraph</p>
-            <mention-page url="{{https://notion.so/another}}" />
-        </div>`
+    test('handles mixed HTML and Notion elements with surrounding markdown', async () => {
+        const htmlContent = html`
+            <div>
+                <h1>Title</h1>
+                <page url="{{https://notion.so/test}}">Test Page</page>
+                <p>Regular paragraph</p>
+                <mention-page url="{{https://notion.so/another}}" />
+            </div>
+        `
+
+        const markdown = `## Section Header
+
+${htmlContent}
+
+And here's a [link](https://example.com) after the HTML block.`
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<div>
+          "## Section Header
+
+          <div>
             <h1>
               Title
             </h1>
@@ -218,35 +269,45 @@ describe('Notion-specific HTML to MDX', () => {
 
             <mention-page url="{{https://notion.so/another}}" />
           </div>
+
+          And here's a [link](https://example.com) after the HTML block.
           "
         `)
     })
 
     test('converts span with color attribute', async () => {
-        const htmlToConvert = html`<span color="blue">Blue text</span>`
+        const htmlContent = html`
+            <span color="blue">
+                Blue text
+            </span>
+        `
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<span color="blue" />Blue text
+          "<span color="blue">
+            Blue text
+          </span>
           "
         `)
     })
 
     test('handles table element conversion', async () => {
-        const htmlToConvert = html`<table header-row="true">
-            <tr>
-                <td>Cell 1</td>
-                <td>Cell 2</td>
-            </tr>
-        </table>`
+        const htmlContent = html`
+            <table header-row="true">
+                <tr>
+                    <td>Cell 1</td>
+                    <td>Cell 2</td>
+                </tr>
+            </table>
+        `
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -268,13 +329,15 @@ describe('Notion-specific HTML to MDX', () => {
     })
 
     test('handles image element conversion', async () => {
-        const htmlToConvert = html`<image
-            source="{{https://example.com/image.jpg}}"
-            alt="Test image"
-        />`
+        const htmlContent = html`
+            <image
+                source="{{https://example.com/image.jpg}}"
+                alt="Test image"
+            />
+        `
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -286,13 +349,15 @@ describe('Notion-specific HTML to MDX', () => {
     })
 
     test('handles unknown element conversion', async () => {
-        const htmlToConvert = html`<unknown
-            url="{{https://notion.so/embed}}"
-            alt="embed"
-        />`
+        const htmlContent = html`
+            <unknown
+                url="{{https://notion.so/embed}}"
+                alt="embed"
+            />
+        `
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -303,27 +368,43 @@ describe('Notion-specific HTML to MDX', () => {
         `)
     })
 
-    test('handles columns with content', async () => {
-        const htmlToConvert = html`<columns>
-            <column>
-                <h2>Section 1</h2>
-                <page url="{{https://notion.so/page}}">Page Link</page>
-            </column>
-            <column>
-                <callout icon="⚠️" color="yellow_bg">
-                    <strong>Warning:</strong> Important information
-                </callout>
-            </column>
-        </columns>`
+    test('handles columns with content and surrounding markdown', async () => {
+        const htmlContent = html`
+            <columns>
+                <column>
+                    <h2>Section 1</h2>
+                    <page url="{{https://notion.so/page}}">Page Link</page>
+                </column>
+                <column>
+                    <callout icon="⚠️" color="yellow_bg">
+                        <strong>Warning:</strong> Important information
+                    </callout>
+                </column>
+            </columns>
+        `
+
+        const markdown = `# Main Title
+
+Here's some introductory text before the columns.
+
+${htmlContent}
+
+---
+
+Footer text with **bold** and *italic*.`
 
         const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+            markdown,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<columns>
+          "# Main Title
+
+          Here's some introductory text before the columns.
+
+          <columns>
             <column>
               <h2>
                 Section 1
@@ -344,6 +425,42 @@ describe('Notion-specific HTML to MDX', () => {
               </callout>
             </column>
           </columns>
+
+          ***
+
+          Footer text with **bold** and *italic*.
+          "
+        `)
+    })
+
+    test('handles HTML wrappers around markdown content', async () => {
+      const markdown = html`
+      <table-of-contents color="gray" />
+
+      ## GitHub/GitLab: Update issues with pull request actions
+      The GitHub and GitLab integrations move issues from *In Progress* to *Done* automatically so you never have to update issues manually. It takes less than a minute to connect GitHub to the workspace and then go to team settings to configure the automatic updates. Read more in the detailed [documentation]({{/60b0cf80dbe0420faa1264a58da48bd2}}).
+      <unknown url="{{https://www.notion.so/f050b7b5625b40c1a67ec00d8523dca8#68722a306eb646ffac1a6bf590b654f6}}" alt="tweet" />
+      ### ✨ProTip: Set personal GitHub preferences
+      Configure these settings in Preferences under Account Settings.
+      `
+
+        const mdxString = await htmlToMdxString({
+            markdown,
+            onError: (e) => {
+                throw e
+            },
+        })
+        expect(mdxString).toMatchInlineSnapshot(`
+          "<table-of-contents color="gray" />
+
+          ## GitHub/GitLab: Update issues with pull request actions
+
+          The GitHub and GitLab integrations move issues from *In Progress* to *Done* automatically so you never have to update issues manually. It takes less than a minute to connect GitHub to the workspace and then go to team settings to configure the automatic updates. Read more in the detailed [documentation](\\{\\{/60b0cf80dbe0420faa1264a58da48bd2}}).
+          <unknown url="{{https://www.notion.so/f050b7b5625b40c1a67ec00d8523dca8#68722a306eb646ffac1a6bf590b654f6}}" alt="tweet" />
+
+          ### ✨ProTip: Set personal GitHub preferences
+
+          Configure these settings in Preferences under Account Settings.
           "
         `)
     })
@@ -647,90 +764,125 @@ describe('parseHtmlToMdxAst without transforms (generic)', () => {
 
 describe('parseHtmlToMdxAst with markdown processor', () => {
     test('parses markdown inside HTML tags', async () => {
-        const htmlToConvert = '<callout>This is **bold** text</callout>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <callout>
+                This is **bold** text
+            </callout>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<callout />This is **bold** text
+          "<callout>
+            This is **bold** text
+          </callout>
           "
         `)
     })
 
     test('parses markdown links inside HTML', async () => {
-        const htmlToConvert =
-            '<span color="orange">[link](http://google.com)</span>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <span color="orange">
+                [link](http://google.com)
+            </span>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<span color="orange" />[link](http://google.com)
+          "<span color="orange">
+            [link](http://google.com)
+          </span>
           "
         `)
     })
 
     test('parses mixed markdown and HTML inside tags', async () => {
-        const htmlToConvert =
-            '<callout>**Read next:** <mention-page url="https://notion.so/page"/></callout>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <callout>
+                **Read next:** <mention-page url="https://notion.so/page"/>
+            </callout>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<callout />**Read next:** <mention-page url="https://notion.so/page" />
+          "<callout>
+            **Read next:**
+
+            <mention-page url="https://notion.so/page" />
+          </callout>
           "
         `)
     })
 
     test('handles bold inside span with underline', async () => {
-        const htmlToConvert = '<span underline="true">  **sdf dsf**</span>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <span underline="true">
+                **sdf dsf**
+            </span>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<span underline="true" />  **sdf dsf**
+          "<span underline="true">
+            **sdf dsf**
+          </span>
           "
         `)
     })
 
     test('converts markdown inside callout to MDX string', async () => {
-        const htmlToConvert = html`<callout icon="👉" color="orange_bg"
-            >**Read next:** Some page</callout
-        >`
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <callout icon="👉" color="orange_bg">
+                **Read next:** Some page
+            </callout>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<callout icon="👉" color="orange_bg" />**Read next:** Some page
+          "<callout icon="👉" color="orange_bg">
+            **Read next:** Some page
+          </callout>
           "
         `)
     })
 
     test('handles markdown inside table cells', async () => {
-        const htmlToConvert =
-            '<table><tr><td>**Bold** text and [link](http://example.com)</td></tr></table>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <table>
+                <tr>
+                    <td>
+                        **Bold** text and [link](http://example.com)
+                    </td>
+                </tr>
+            </table>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -748,10 +900,14 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
     })
 
     test('preserves plain text when no markdown', async () => {
-        const htmlToConvert = '<div>Plain text without markdown</div>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <div>
+                Plain text without markdown
+            </div>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
@@ -765,11 +921,16 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
     })
 
     test('handles nested HTML tags with markdown', async () => {
-        const htmlToConvert =
-            '<div><span>**Bold** and <a href="#">link</a></span></div>'
-        const mdxString = await htmlToMdxString({
-            markdown: htmlToConvert,
+        const htmlContent = html`
+            <div>
+                <span>
+                    **Bold** and <a href="#">link</a>
+                </span>
+            </div>
+        `
 
+        const mdxString = await htmlToMdxString({
+            markdown: htmlContent,
             onError: (e) => {
                 throw e
             },
