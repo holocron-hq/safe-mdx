@@ -434,6 +434,8 @@ Footer text with **bold** and *italic*.`
     })
 
     test('handles HTML wrappers around markdown content', async () => {
+
+      // TODO if ypu do not add a new line after <selfClosingTag /> it gets all parsed as html!
       const markdown = html`
       <table-of-contents color="gray" />
 
