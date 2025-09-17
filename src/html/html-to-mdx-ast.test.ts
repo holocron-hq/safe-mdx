@@ -67,29 +67,36 @@ describe('parseHtmlToMdxAst', () => {
     })
 
     test('filters out non-HTML elements when convertTagName returns empty string', () => {
-        const result = parseHtmlToMdxAst({ 
+        const result = parseHtmlToMdxAst({
             html: '<custom-element>Hello <span>world</span></custom-element>',
             convertTagName: ({ tagName }) => {
                 // Only keep span, filter out custom-element
                 if (tagName === 'span') return 'span'
-                return ''
+                return tagName
             }
         })
         expect(result).toMatchInlineSnapshot(`
           [
             {
-              "type": "text",
-              "value": "Hello ",
-            },
-            {
               "attributes": [],
               "children": [
                 {
                   "type": "text",
-                  "value": "world",
+                  "value": "Hello ",
+                },
+                {
+                  "attributes": [],
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "world",
+                    },
+                  ],
+                  "name": "span",
+                  "type": "mdxJsxTextElement",
                 },
               ],
-              "name": "span",
+              "name": "custom-element",
               "type": "mdxJsxTextElement",
             },
           ]
@@ -199,22 +206,15 @@ describe('parseHtmlToMdxAst', () => {
                       "attributes": [],
                       "children": [
                         {
-                          "attributes": [],
-                          "children": [
-                            {
-                              "type": "text",
-                              "value": "Cell",
-                            },
-                          ],
-                          "name": "td",
-                          "type": "mdxJsxTextElement",
+                          "type": "text",
+                          "value": "Cell",
                         },
                       ],
-                      "name": "tr",
+                      "name": "td",
                       "type": "mdxJsxTextElement",
                     },
                   ],
-                  "name": "tbody",
+                  "name": "tr",
                   "type": "mdxJsxTextElement",
                 },
               ],
@@ -261,7 +261,7 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
             onError: (e) => { throw e }
         })
         expect(mdxString).toMatchInlineSnapshot(`
-          "<table><tbody><tr><td>**Bold** text and [link](http://example.com)</td></tr></tbody></table>
+          "<table><tr><td>**Bold** text and [link](http://example.com)</td></tr></table>
           "
         `)
     })

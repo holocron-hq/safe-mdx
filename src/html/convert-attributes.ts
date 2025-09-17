@@ -1,4 +1,4 @@
-import type { Token } from "parse5";
+
 import {
   coerceToBooleanAttributes,
   eventHandlerAttributes,

@@ -1,13 +1,12 @@
-import type { Root, RootContent, Text } from 'mdast'
+import type { Root, RootContent, Text as MdastText } from 'mdast'
 import type {
     MdxJsxAttribute,
     MdxJsxAttributeValueExpression,
-    MdxJsxTextElement
+    MdxJsxTextElement,
 } from 'mdast-util-mdx-jsx'
-import type { DefaultTreeAdapterTypes as pt, Token } from 'parse5'
-import { parseFragment } from 'parse5'
 import type { Processor } from 'unified'
 import { convertAttributeNameToJSX } from './convert-attributes.js'
+import { parseHTML } from './domparser.js'
 
 // Re-export the normalize plugin
 export { default as remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize.js'
@@ -38,23 +37,17 @@ export interface ParseHtmlToMdxAstOptions {
     convertAttributeValue?: ConvertAttributeValue
 }
 
-// Type guard functions
-function isCommentNode(node: pt.ChildNode): node is pt.CommentNode {
-    return node.nodeName === '#comment'
+// Type guard functions for DOM nodes
+function isCommentNode(node: Node): node is Comment {
+    return node.nodeType === 8 // Node.COMMENT_NODE
 }
 
-function isTextNode(node: pt.ChildNode): node is pt.TextNode {
-    return node.nodeName === '#text'
+function isTextNode(node: Node): node is Text {
+    return node.nodeType === 3 // Node.TEXT_NODE
 }
 
-function isDocumentType(node: pt.ChildNode): node is pt.DocumentType {
-    return (
-        node.nodeName === '#document' || node.nodeName === '#document-fragment'
-    )
-}
-
-function isElementNode(node: pt.ChildNode): node is pt.Element {
-    return 'tagName' in node
+function isElementNode(node: Node): node is Element {
+    return node.nodeType === 1 // Node.ELEMENT_NODE
 }
 
 // Default tag name converter (no transformation)
@@ -69,7 +62,7 @@ function defaultTextToMdast({ text }: { text: string }): string {
 
 // Default attribute value converter (no transformation)
 function defaultConvertAttributeValue({
-    value
+    value,
 }: {
     name: string
     value: string
@@ -80,15 +73,20 @@ function defaultConvertAttributeValue({
 
 // Convert HTML attribute to MDX JSX attribute
 function convertAttribute(
-    attr: Token.Attribute,
+    attr: Attr,
     tagName: string,
     options?: ParseHtmlToMdxAstOptions,
 ): MdxJsxAttribute {
     let jsxName = convertAttributeNameToJSX(attr.name)
 
     // Apply attribute value transformation
-    const convertAttrValue = options?.convertAttributeValue || defaultConvertAttributeValue
-    let value = convertAttrValue({ name: attr.name, value: attr.value, tagName })
+    const convertAttrValue =
+        options?.convertAttributeValue || defaultConvertAttributeValue
+    let value = convertAttrValue({
+        name: attr.name,
+        value: attr.value,
+        tagName,
+    })
 
     // Handle boolean attributes
     if (value === '' || value === attr.name) {
@@ -118,19 +116,19 @@ function convertAttribute(
                 type: 'mdxJsxAttributeValueExpression',
                 value: value,
                 data: {
-                  estree: {
-                      type: 'Program',
-                      sourceType: 'module',
-                      body: [
-                          {
-                              type: 'ExpressionStatement',
-                              expression: {
-                                  type: 'Literal',
-                                  value: Number(value),
-                              },
-                          },
-                      ],
-                  },
+                    estree: {
+                        type: 'Program',
+                        sourceType: 'module',
+                        body: [
+                            {
+                                type: 'ExpressionStatement',
+                                expression: {
+                                    type: 'Literal',
+                                    value: Number(value),
+                                },
+                            },
+                        ],
+                    },
                 },
             } satisfies MdxJsxAttributeValueExpression,
         }
@@ -142,11 +140,17 @@ function convertAttribute(
     //     return {
     //         type: 'mdxJsxAttribute',
     //         name: jsxName,
-    //         value: value,
+    //         value: {
+    //             type: 'mdxJsxAttributeValueExpression',
+    //             value: `{${JSON.stringify(parseStyleString(value))}}`,
+    //             data: {
+    //                 estree: parseExpression(JSON.stringify(parseStyleString(value))),
+    //             },
+    //         },
     //     }
     // }
 
-    // Default: string value
+    // String value
     return {
         type: 'mdxJsxAttribute',
         name: jsxName,
@@ -154,11 +158,9 @@ function convertAttribute(
     }
 }
 
-
-
-// Convert parse5 HTML node to MDX AST nodes
+// Convert DOM node to MDX AST nodes
 function htmlNodeToMdxAst(
-    node: pt.ChildNode,
+    node: Node,
     options?: ParseHtmlToMdxAstOptions,
 ): RootContent | RootContent[] {
     if (isCommentNode(node)) {
@@ -172,12 +174,13 @@ function htmlNodeToMdxAst(
     }
 
     if (isTextNode(node)) {
+        const textValue = node.textContent || ''
         // If we have a processor, parse the text as markdown
-        if (options?.processor && node.value.trim()) {
+        if (options?.processor && textValue.trim()) {
             try {
                 // Apply text transformation before parsing markdown
                 const textToMdast = options.textToMdast || defaultTextToMdast
-                const preprocessed = textToMdast({ text: node.value })
+                const preprocessed = textToMdast({ text: textValue })
                 const mdast = options.processor.parse(preprocessed) as Root
                 options.processor.runSync(mdast)
                 // Return the children of the root node, which are the actual content nodes
@@ -185,25 +188,24 @@ function htmlNodeToMdxAst(
             } catch (error) {
                 // Call onError callback if provided, otherwise log
                 if (options.onError) {
-                    options.onError(error, node.value)
+                    options.onError(error, textValue)
                 } else {
-                    console.error('Failed to parse markdown in HTML text node:', error)
-                    console.error('Text content:', node.value)
+                    console.error(
+                        'Failed to parse markdown in HTML text node:',
+                        error,
+                    )
+                    console.error('Text content:', textValue)
                 }
                 return {
                     type: 'text',
-                    value: node.value,
-                } satisfies Text
+                    value: textValue,
+                } satisfies MdastText
             }
         }
         return {
             type: 'text',
-            value: node.value,
-        } satisfies Text
-    }
-
-    if (isDocumentType(node)) {
-        throw new Error('Document type nodes cannot be processed')
+            value: textValue,
+        } satisfies MdastText
     }
 
     if (!isElementNode(node)) {
@@ -211,28 +213,40 @@ function htmlNodeToMdxAst(
     }
 
     const convertTagNameFn = options?.convertTagName || defaultConvertTagName
-    const componentName = convertTagNameFn({ tagName: node.tagName })
+    // DOM API returns uppercase tagName, but we want lowercase for consistency
+    const componentName = convertTagNameFn({ tagName: node.tagName.toLowerCase() })
 
     // If convertTagName returns empty string, skip this element and only return its children
     if (componentName === '') {
         // Process children but skip the element wrapper
-        const children: RootContent[] = node.childNodes.flatMap((child) => {
+        const children: RootContent[] = []
+        for (const child of Array.from(node.childNodes)) {
             const result = htmlNodeToMdxAst(child, options)
-            return Array.isArray(result) ? result : [result]
-        })
+            if (Array.isArray(result)) {
+                children.push(...result)
+            } else {
+                children.push(result)
+            }
+        }
         return children
     }
 
     // Convert attributes
-    const attributes: MdxJsxAttribute[] = node.attrs.map((attr) =>
-        convertAttribute(attr, node.tagName, options),
-    )
+    const attributes: MdxJsxAttribute[] = []
+    for (const attr of Array.from(node.attributes)) {
+        attributes.push(convertAttribute(attr, node.tagName, options))
+    }
 
     // Process children
-    const children: RootContent[] = node.childNodes.flatMap((child) => {
+    const children: RootContent[] = []
+    for (const child of Array.from(node.childNodes)) {
         const result = htmlNodeToMdxAst(child, options)
-        return Array.isArray(result) ? result : [result]
-    })
+        if (Array.isArray(result)) {
+            children.push(...result)
+        } else {
+            children.push(result)
+        }
+    }
 
     // Always create MdxJsxTextElement initially
     // The conversion to MdxJsxFlowElement will be handled by a separate plugin
@@ -249,22 +263,44 @@ function htmlNodeToMdxAst(
 export function htmlToMdxAst(
     options: ParseHtmlToMdxAstOptions,
 ): RootContent | RootContent[] {
-    // Parse HTML with parse5
-    const htmlAst = parseFragment(options.html.trim())
+    // Parse HTML with linkedom
+    const { document } = parseHTML(options.html.trim())
 
-    if (htmlAst.childNodes.length === 0) {
+    // linkedom behavior:
+    // - If input is a fragment (like "<div>Hello</div>"), the content becomes direct children of document
+    // - If input has body tag, it creates proper body element
+    // - We need to handle both cases
+    
+    // linkedom behavior: 
+    // - When parsing fragments, content becomes direct children of document
+    // - Accessing document.body on fragments auto-creates HEAD and BODY as children
+    // - We must avoid accessing document.body to prevent this
+    
+    // Just use document's direct children and filter for relevant nodes
+    const childNodes = Array.from(document.childNodes).filter(node => 
+        node.nodeType === 1 || // Element nodes
+        node.nodeType === 3 || // Text nodes
+        node.nodeType === 8    // Comment nodes
+    )
+    
+    if (childNodes.length === 0) {
         return []
     }
 
-    if (htmlAst.childNodes.length === 1) {
-        return htmlNodeToMdxAst(htmlAst.childNodes[0]!, options)
+    if (childNodes.length === 1) {
+        return htmlNodeToMdxAst(childNodes[0]!, options)
     }
 
     // Multiple nodes - return as array
-    const results = htmlAst.childNodes.flatMap((node) => {
+    const results: RootContent[] = []
+    for (const node of childNodes) {
         const result = htmlNodeToMdxAst(node, options)
-        return Array.isArray(result) ? result : [result]
-    })
+        if (Array.isArray(result)) {
+            results.push(...result)
+        } else {
+            results.push(result)
+        }
+    }
 
     return results
 }

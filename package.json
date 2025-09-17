@@ -15,6 +15,11 @@
             "types": "./dist/parse.d.ts",
             "default": "./dist/parse.js"
         },
+        "./domparser": {
+            "types": "./dist/html/domparser.d.ts",
+            "browser": "./dist/html/domparser-browser.js",
+            "default": "./dist/html/domparser.js"
+        },
         "./src/*": "./src/*.tsx",
         "./package.json": "./package.json"
     },
@@ -45,7 +50,7 @@
         "@standard-schema/spec": "^1.0.0",
         "collapse-white-space": "^2.1.0",
         "eval-estree-expression": "^3.0.0",
-        "parse5": "^7.2.1",
+        "linkedom": "^0.18.12",
         "remark": "^15.0.1",
         "remark-frontmatter": "^5.0.0",
         "remark-gfm": "^4.0.0",
