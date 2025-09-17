@@ -5,11 +5,13 @@ import type {
     MdxJsxTextElement,
 } from 'mdast-util-mdx-jsx'
 import type { Processor } from 'unified'
+import { unified } from 'unified'
 import { convertAttributeNameToJSX } from './convert-attributes.js'
 import { parseHTML } from './domparser.js'
+import { remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize.js'
 
 // Re-export the normalize plugin
-export { default as remarkMdxJsxNormalize } from './remark-mdx-jsx-normalize.js'
+export { remarkMdxJsxNormalize }
 
 // Type for converting tag names
 export type ConvertTagName = (args: { tagName: string }) => string
@@ -29,6 +31,7 @@ export type ConvertAttributeValue = (args: {
 // Options for parsing HTML to MDX AST
 export interface ParseHtmlToMdxAstOptions {
     html: string
+    parentType?: string
     onError?: (error: unknown, text: string) => void
     convertTagName?: ConvertTagName
     textToMdast?: TextToMdast
@@ -151,18 +154,18 @@ function convertAttribute(
     }
 }
 
-// Convert DOM node to MDX AST nodes
+// Convert DOM node to MDX AST nodes - always returns an array
 function htmlNodeToMdxAst(
     node: Node,
     options?: ParseHtmlToMdxAstOptions,
-): RootContent | RootContent[] {
+): RootContent[] {
     if (isCommentNode(node)) {
         // Convert comments to MDX JSX expression with comment
-        // For now, return as HTML node
-        // return {
+        // For now, return empty array
+        // return [{
         //     type: 'html',
         //     value: `<!-- ${node.data} -->`
-        // } as Html
+        // }] as Html[]
         return []
     }
 
@@ -173,7 +176,7 @@ function htmlNodeToMdxAst(
         if (options?.textToMdast) {
             try {
                 const result = options.textToMdast({ text: textValue })
-                return result
+                return Array.isArray(result) ? result : [result]
             } catch (error) {
                 // Call onError callback if provided, otherwise log
                 if (options.onError) {
@@ -183,18 +186,22 @@ function htmlNodeToMdxAst(
                     console.error('Text content:', textValue)
                 }
                 // Fallback to simple text node
-                return {
-                    type: 'text',
-                    value: textValue,
-                } satisfies MdastText
+                return [
+                    {
+                        type: 'text',
+                        value: textValue,
+                    } satisfies MdastText,
+                ]
             }
         }
 
         // Default: return simple text node
-        return {
-            type: 'text',
-            value: textValue,
-        } satisfies MdastText
+        return [
+            {
+                type: 'text',
+                value: textValue,
+            } satisfies MdastText,
+        ]
     }
 
     if (!isElementNode(node)) {
@@ -210,12 +217,7 @@ function htmlNodeToMdxAst(
         // Process children but skip the element wrapper
         const children: RootContent[] = []
         for (const child of Array.from(node.childNodes)) {
-            const result = htmlNodeToMdxAst(child, options)
-            if (Array.isArray(result)) {
-                children.push(...result)
-            } else {
-                children.push(result)
-            }
+            children.push(...htmlNodeToMdxAst(child, options))
         }
         return children
     }
@@ -229,12 +231,7 @@ function htmlNodeToMdxAst(
     // Process children
     const children: RootContent[] = []
     for (const child of Array.from(node.childNodes)) {
-        const result = htmlNodeToMdxAst(child, options)
-        if (Array.isArray(result)) {
-            children.push(...result)
-        } else {
-            children.push(result)
-        }
+        children.push(...htmlNodeToMdxAst(child, options))
     }
 
     // Always create MdxJsxTextElement initially
@@ -245,13 +242,11 @@ function htmlNodeToMdxAst(
         attributes,
         children: children as any,
     }
-    return element
+    return [element]
 }
 
-// Main function to parse HTML and return MDX AST
-export function htmlToMdxAst(
-    options: ParseHtmlToMdxAstOptions,
-): RootContent | RootContent[] {
+// Main function to parse HTML and return MDX AST - always returns an array
+export function htmlToMdxAst(options: ParseHtmlToMdxAstOptions): RootContent[] {
     // Parse HTML with linkedom
     const { document } = parseHTML(options.html.trim())
 
@@ -273,22 +268,50 @@ export function htmlToMdxAst(
             node.nodeType === 8, // Comment nodes
     )
 
-    if (childNodes.length === 0) {
-        return []
-    }
+    let results: RootContent[] = []
 
-    if (childNodes.length === 1) {
-        return htmlNodeToMdxAst(childNodes[0]!, options)
-    }
-
-    // Multiple nodes - return as array
-    const results: RootContent[] = []
     for (const node of childNodes) {
-        const result = htmlNodeToMdxAst(node, options)
-        if (Array.isArray(result)) {
-            results.push(...result)
+        results.push(...htmlNodeToMdxAst(node, options))
+    }
+
+    // Apply the normalize plugin if we have a parentType
+    if (options.parentType && results.length > 0) {
+        // Create a temporary AST node with the same parent type
+        const parentType = options.parentType
+        const tempRoot: Root = {
+            type: 'root',
+            children: results,
+        }
+
+        // If we have a specific parent type, wrap the content in that parent
+        // to provide proper context for the normalize plugin
+        let astToProcess: Root
+        if (parentType !== 'root') {
+            // Create a parent node of the specified type with our content as children
+            const parentNode: any = {
+                type: parentType,
+                children: tempRoot.children,
+            }
+            astToProcess = {
+                type: 'root',
+                children: [parentNode],
+            }
         } else {
-            results.push(result)
+            astToProcess = tempRoot
+        }
+
+        // Create a simple processor and run the normalize plugin
+        const processor = unified().use(remarkMdxJsxNormalize)
+        processor.runSync(astToProcess)
+
+        // Extract the result back
+        if (parentType !== 'root') {
+            // Get the children from the parent node we created
+            const processedParent = astToProcess.children[0] as any
+            results = processedParent.children as RootContent[]
+        } else {
+            // Get children directly from root
+            results = astToProcess.children
         }
     }
 
@@ -296,9 +319,9 @@ export function htmlToMdxAst(
 }
 
 // Export a wrapper that always returns an array for consistency
+// Note: htmlToMdxAst now already returns an array, so this is just an alias
 export function parseHtmlToMdxAst(
     options: ParseHtmlToMdxAstOptions,
 ): RootContent[] {
-    const result = htmlToMdxAst(options)
-    return Array.isArray(result) ? result : [result]
+    return htmlToMdxAst(options)
 }

@@ -22,6 +22,40 @@ const PHRASE_CONTAINERS = new Set([
     'mdxJsxTextElement', // MDX JSX text elements should contain phrasing
 ])
 
+/** HTML tags that require phrasing/inline children */
+const PHRASE_HTML_CONTAINERS = new Set([
+    'p',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'em',
+    'strong',
+    'b',
+    'i',
+    'u',
+    's',
+    'del',
+    'ins',
+    'mark',
+    'small',
+    'sub',
+    'sup',
+    'a',
+    'abbr',
+    'cite',
+    'code',
+    'dfn',
+    'kbd',
+    'q',
+    'samp',
+    'span',
+    'time',
+    'var',
+])
+
 /** Parents that accept/expect flow (block) content */
 const FLOW_CONTAINERS = new Set([
     'root',
@@ -55,22 +89,51 @@ const blockLevelTags = new Set([
     'div',
     'p',
     'blockquote',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'ul', 'ol', 'li',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'ul',
+    'ol',
+    'li',
     'pre',
     'hr',
-    'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-    'section', 'article', 'aside', 'nav', 'header', 'footer', 'main',
-    'figure', 'figcaption',
+    'table',
+    'thead',
+    'tbody',
+    'tfoot',
+    'tr',
+    'th',
+    'td',
+    'section',
+    'article',
+    'aside',
+    'nav',
+    'header',
+    'footer',
+    'main',
+    'figure',
+    'figcaption',
     // Notion-specific block elements
     'callout',
-    'columns', 'column',
+    'columns',
+    'column',
     'page',
     'database',
     'data-source',
-    'audio', 'video', 'file', 'pdf', 'embed',
-    'synced_block', 'synced_block_reference',
-    'meeting-notes', 'summary', 'notes', 'transcript',
+    'audio',
+    'video',
+    'file',
+    'pdf',
+    'embed',
+    'synced_block',
+    'synced_block_reference',
+    'meeting-notes',
+    'summary',
+    'notes',
+    'transcript',
     'table_of_contents',
     'unknown',
     'image', // Images can be block-level in Notion
@@ -83,24 +146,40 @@ const blockLevelTags = new Set([
  * - Elements with block-level tag names → mdxJsxFlowElement
  * - Elements containing non-phrasing children → mdxJsxFlowElement
  */
-export default function remarkMdxJsxNormalize() {
+export function remarkMdxJsxNormalize() {
     return function transform(tree: Root) {
         visitParents(tree, isMdxJsx, (node, ancestors) => {
             const element = node as MdxJsxTextElement | MdxJsxFlowElement
             const parent = ancestors[ancestors.length - 1] as Parent | undefined
             if (!parent) return
 
-            const parentType = parent.type
-            const parentExpectsPhrasing = PHRASE_CONTAINERS.has(parentType)
-            const parentExpectsFlow = FLOW_CONTAINERS.has(parentType)
+            // Check if parent expects phrasing or flow content
+            let parentExpectsPhrasing = false
+            let parentExpectsFlow = false
+            
+            if ((parent.type === 'mdxJsxFlowElement' || parent.type === 'mdxJsxTextElement') && 
+                (parent as any).name) {
+                // For MDX JSX elements, check the tag name
+                const parentTagName = (parent as any).name.toLowerCase()
+                parentExpectsPhrasing = PHRASE_HTML_CONTAINERS.has(parentTagName)
+                // If not phrasing and is a block-level tag, it expects flow
+                parentExpectsFlow = !parentExpectsPhrasing && blockLevelTags.has(parentTagName)
+            } else {
+                // For mdast nodes, check the type
+                parentExpectsPhrasing = PHRASE_CONTAINERS.has(parent.type)
+                parentExpectsFlow = FLOW_CONTAINERS.has(parent.type)
+            }
 
             // Check element properties
-            const hasBlockTag = element.name ? blockLevelTags.has(element.name.toLowerCase()) : false
+            const hasBlockTag = element.name
+                ? blockLevelTags.has(element.name.toLowerCase())
+                : false
             const children = (element.children || []) as RootContent[]
             const containsNonPhrasing = children.some((c) => !isPhrasing(c))
 
             // Determine desired type
-            let desired: 'mdxJsxTextElement' | 'mdxJsxFlowElement' = element.type
+            let desired: 'mdxJsxTextElement' | 'mdxJsxFlowElement' =
+                element.type
 
             // Priority rules:
             // 1. If it has a block-level tag name, it should be flow
@@ -124,5 +203,7 @@ export default function remarkMdxJsxNormalize() {
 
 /** Check if a node is an MDX JSX element */
 function isMdxJsx(node: Node): boolean {
-    return node.type === 'mdxJsxTextElement' || node.type === 'mdxJsxFlowElement'
+    return (
+        node.type === 'mdxJsxTextElement' || node.type === 'mdxJsxFlowElement'
+    )
 }

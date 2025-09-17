@@ -362,4 +362,98 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
           }
         `)
     })
+
+    test('normalize plugin without parentType does not apply', () => {
+        // Without parentType, normalization should not happen
+        const withoutParent = htmlToMdxAst({ 
+            html: '<span>Text</span>'
+        })
+        // Without normalization, elements remain as initially created (text elements)
+        expect(withoutParent).toHaveLength(1)
+        expect(withoutParent[0]).toMatchObject({
+            type: 'mdxJsxTextElement',
+            name: 'span'
+        })
+    })
+
+    test('applies normalize plugin with parentType', () => {
+        // Test with a block element inside a paragraph (phrasing context)
+        const blockInParagraph = htmlToMdxAst({ 
+            html: '<div>Block in paragraph</div>',
+            parentType: 'paragraph'
+        })
+        // Even though div is a block element, it should remain mdxJsxFlowElement
+        // because block-level tags have priority
+        expect(blockInParagraph).toHaveLength(1)
+        expect(blockInParagraph[0]).toMatchObject({
+            type: 'mdxJsxFlowElement',
+            name: 'div'
+        })
+
+        // Test with inline element in paragraph (should be text element)
+        const inlineInParagraph = htmlToMdxAst({ 
+            html: '<span>Inline in paragraph</span>',
+            parentType: 'paragraph'
+        })
+        expect(inlineInParagraph).toHaveLength(1)
+        expect(inlineInParagraph[0]).toMatchObject({
+            type: 'mdxJsxTextElement',
+            name: 'span'
+        })
+
+        // Test with inline element in root (should be flow element)
+        const inlineInRoot = htmlToMdxAst({ 
+            html: '<span>Inline in root</span>',
+            parentType: 'root'
+        })
+        expect(inlineInRoot).toHaveLength(1)
+        expect(inlineInRoot[0]).toMatchObject({
+            type: 'mdxJsxFlowElement', 
+            name: 'span'
+        })
+
+        // Test with multiple elements
+        const multipleElements = htmlToMdxAst({ 
+            html: '<span>First</span><div>Second</div>',
+            parentType: 'paragraph'
+        })
+        expect(multipleElements).toHaveLength(2)
+        expect(multipleElements[0]).toMatchObject({
+            type: 'mdxJsxTextElement',
+            name: 'span'
+        })
+        expect(multipleElements[1]).toMatchObject({
+            type: 'mdxJsxFlowElement', // div is block-level
+            name: 'div'
+        })
+
+        // Test with nested elements - the normalize plugin should handle nested context correctly
+        const nestedElements = htmlToMdxAst({ 
+            html: '<div><span>Nested span</span><p><em>Emphasis</em></p></div>',
+            parentType: 'root'
+        })
+        
+        // The plugin normalizes based on the entire tree structure
+        expect(nestedElements).toHaveLength(1)
+        expect(nestedElements[0]).toMatchObject({
+            type: 'mdxJsxFlowElement',
+            name: 'div',
+            children: expect.arrayContaining([
+                expect.objectContaining({
+                    type: 'mdxJsxFlowElement', // span in div (flow container) becomes flow  
+                    name: 'span'
+                }),
+                expect.objectContaining({
+                    type: 'mdxJsxFlowElement',
+                    name: 'p',
+                    children: expect.arrayContaining([
+                        expect.objectContaining({
+                            type: 'mdxJsxTextElement', // em in paragraph (phrasing container) becomes text
+                            name: 'em'
+                        })
+                    ])
+                })
+            ])
+        })
+    })
 })

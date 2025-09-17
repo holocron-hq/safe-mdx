@@ -186,7 +186,7 @@ export class MdastToJsx {
 
     mapMdastChildren(node: any) {
         const res = node.children
-            ?.flatMap((child) => this.mdastTransformer(child))
+            ?.flatMap((child) => this.mdastTransformer(child, node.type))
             .filter(Boolean)
         if (Array.isArray(res)) {
             if (!res.length) {
@@ -287,7 +287,7 @@ export class MdastToJsx {
                 )
             }
             default: {
-                return this.mdastTransformer(node)
+                return this.mdastTransformer(node, 'mdxJsxElement')
             }
         }
     }
@@ -564,14 +564,14 @@ export class MdastToJsx {
     }
 
     run() {
-        const res = this.mdastTransformer(this.mdast) as ReactNode
+        const res = this.mdastTransformer(this.mdast, 'root') as ReactNode
         if (Array.isArray(res) && res.length === 1) {
             return res[0]
         }
         return res
     }
 
-    mdastTransformer(node: MyRootContent): ReactNode {
+    mdastTransformer(node: MyRootContent, parentType?: string): ReactNode {
         if (!node) {
             return []
         }
@@ -580,7 +580,7 @@ export class MdastToJsx {
         if (this.renderNode) {
             const customResult = this.renderNode(
                 node,
-                this.mdastTransformer.bind(this),
+                (n: MyRootContent) => this.mdastTransformer(n, node.type),
             )
             if (customResult !== undefined) {
                 return customResult
@@ -928,9 +928,10 @@ export class MdastToJsx {
                     return []
                 }
 
-                // Parse HTML to MDX AST using the new approach
+                // Parse HTML to MDX AST using the new approach - always returns an array
                 const mdxAst = htmlToMdxAst({
                     html: text,
+                    parentType: parentType || 'root',
                     convertTagName: ({ tagName }) => {
                         const lowerTag = tagName.toLowerCase()
                         // Only keep valid HTML elements
@@ -943,11 +944,7 @@ export class MdastToJsx {
                 })
 
                 // Process the MDX AST nodes
-                if (Array.isArray(mdxAst)) {
-                    return mdxAst.map(child => this.mdastTransformer(child))
-                } else {
-                    return this.mdastTransformer(mdxAst)
-                }
+                return mdxAst.map(child => this.mdastTransformer(child, parentType))
             }
             case 'imageReference': {
                 return []

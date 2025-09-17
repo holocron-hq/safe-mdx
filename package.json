@@ -57,6 +57,7 @@
         "remark-mdx": "^3.0.0",
         "style-to-object": "^1.0.8",
         "unified": "^11.0.5",
+        "unist": "^0.0.1",
         "unist-util-visit": "^5.0.0",
         "unist-util-visit-parents": "^6.0.1"
     },

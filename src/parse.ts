@@ -5,9 +5,9 @@ import { Root, RootContent } from 'mdast'
 import { remark } from 'remark'
 import remarkGfm from 'remark-gfm'
 import remarkMdx from 'remark-mdx'
-import { parseHtmlToMdxAst } from './html/html-to-mdx-ast.js'
+import { parseHtmlToMdxAst, remarkMdxJsxNormalize } from './html/html-to-mdx-ast.js'
 
-export { parseHtmlToMdxAst }
+export { parseHtmlToMdxAst, remarkMdxJsxNormalize }
 
 export function mdxParse(code: string) {
     const file = mdxProcessor.processSync(code)
