@@ -1,12 +1,30 @@
 import { test, expect, describe } from 'vitest'
-import { parseHtmlToMdxAst, htmlToMdxAst } from './html-to-mdx-ast.js'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import {
+    parseHtmlToMdxAst,
+    htmlToMdxAst,
+    remarkMdxJsxNormalize,
+} from './html-to-mdx-ast.js'
 import { unified } from 'unified'
 import remarkMdx from 'remark-mdx'
 import remarkStringify from 'remark-stringify'
 import remarkParse from 'remark-parse'
 import type { RootContent } from 'mdast'
+import { mdxParse } from '../parse.js'
+import { MdastToJsx } from '../safe-mdx.js'
 
-// Helper to convert HTML to MDX string
+// Default components for testing
+const components = {
+    Heading({ level, children, ...props }) {
+        return React.createElement('h1', props, children)
+    },
+    Cards({ level, children, ...props }) {
+        return React.createElement('div', props, children)
+    },
+}
+
+// Helper to convert HTML to MDX string and rendered HTML
 async function htmlToMdxString({
     html,
     withProcessor = false,
@@ -23,7 +41,7 @@ async function htmlToMdxString({
         value: string
         tagName: string
     }) => string
-}): Promise<string> {
+}): Promise<{ mdx: string; html: string }> {
     // If withProcessor is true, create a textToMdast that parses markdown
     const textToMdast = withProcessor
         ? ({ text }: { text: string }) => {
@@ -44,6 +62,8 @@ async function htmlToMdxString({
         convertTagName,
         convertAttributeValue,
     })
+
+    // Generate MDX string
     const processor = unified().use(remarkMdx).use(remarkStringify, {
         // bullet: '-',
         // fence: '`',
@@ -56,7 +76,16 @@ async function htmlToMdxString({
         children: mdxAst,
     }
 
-    return processor.stringify(root as any)
+    const mdx = processor.stringify(root as any)
+
+    // Generate HTML using MdastToJsx like in safe-mdx.test.tsx
+    // First parse the MDX to get the full AST
+    const mdast = mdxParse(mdx)
+    const visitor = new MdastToJsx({ markdown: mdx, mdast, components })
+    const jsx = visitor.run()
+    const renderedHtml = renderToStaticMarkup(jsx)
+
+    return { mdx, html: renderedHtml }
 }
 
 describe('parseHtmlToMdxAst', () => {
@@ -244,78 +273,93 @@ describe('parseHtmlToMdxAst', () => {
 describe('parseHtmlToMdxAst with markdown processor', () => {
     test('parses markdown inside HTML tags', async () => {
         const htmlToConvert = '<div>This is **bold** text</div>'
-        const mdxString = await htmlToMdxString({
+        const result = await htmlToMdxString({
             html: htmlToConvert,
             withProcessor: true,
             onError: (e) => {
                 throw e
             },
         })
-        expect(mdxString).toMatchInlineSnapshot(`
-          "<div>This is **bold** text</div>
-          "
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "html": "<div>This is <strong>bold</strong> text</div>",
+            "mdx": "<div>This is **bold** text</div>
+          ",
+          }
         `)
     })
 
     test('handles mixed markdown and HTML inside tags', async () => {
         const htmlToConvert = '<div>**Bold text:** <a href="#">link</a></div>'
-        const mdxString = await htmlToMdxString({
+        const result = await htmlToMdxString({
             html: htmlToConvert,
             withProcessor: true,
             onError: (e) => {
                 throw e
             },
         })
-        expect(mdxString).toMatchInlineSnapshot(`
-          "<div>**Bold text:**<a href="#">link</a></div>
-          "
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "html": "<div><strong>Bold text:</strong><a href="#">link</a></div>",
+            "mdx": "<div>**Bold text:**<a href="#">link</a></div>
+          ",
+          }
         `)
     })
 
     test('handles markdown inside table cells', async () => {
         const htmlToConvert =
             '<table><tr><td>**Bold** text and [link](http://example.com)</td></tr></table>'
-        const mdxString = await htmlToMdxString({
+        const result = await htmlToMdxString({
             html: htmlToConvert,
             withProcessor: true,
             onError: (e) => {
                 throw e
             },
         })
-        expect(mdxString).toMatchInlineSnapshot(`
-          "<table><tr><td>**Bold** text and [link](http://example.com)</td></tr></table>
-          "
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "html": "<table><tr><td><strong>Bold</strong> text and <a href="http://example.com" title="">link</a></td></tr></table>",
+            "mdx": "<table><tr><td>**Bold** text and [link](http://example.com)</td></tr></table>
+          ",
+          }
         `)
     })
 
     test('preserves plain text when no markdown', async () => {
         const htmlToConvert = '<div>Plain text without markdown</div>'
-        const mdxString = await htmlToMdxString({
+        const result = await htmlToMdxString({
             html: htmlToConvert,
             withProcessor: true,
             onError: (e) => {
                 throw e
             },
         })
-        expect(mdxString).toMatchInlineSnapshot(`
-          "<div>Plain text without markdown</div>
-          "
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "html": "<div>Plain text without markdown</div>",
+            "mdx": "<div>Plain text without markdown</div>
+          ",
+          }
         `)
     })
 
     test('handles nested HTML tags with markdown', async () => {
         const htmlToConvert =
             '<div><span>**Bold** and <a href="#">link</a></span></div>'
-        const mdxString = await htmlToMdxString({
+        const result = await htmlToMdxString({
             html: htmlToConvert,
             withProcessor: true,
             onError: (e) => {
                 throw e
             },
         })
-        expect(mdxString).toMatchInlineSnapshot(`
-          "<div><span>**Bold** and<a href="#">link</a></span></div>
-          "
+        expect(result).toMatchInlineSnapshot(`
+          {
+            "html": "<div><span><strong>Bold</strong> and<a href="#">link</a></span></div>",
+            "mdx": "<div><span>**Bold** and<a href="#">link</a></span></div>
+          ",
+          }
         `)
     })
 })

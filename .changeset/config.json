@@ -4,6 +4,7 @@
     "commit": false,
     "linked": [],
     "access": "public",
+    "privatePackages": false,
     "baseBranch": "main",
     "githubRelease": true,
     "updateInternalDependencies": "patch"

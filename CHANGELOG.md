@@ -1,5 +1,29 @@
 # safe-mdx
 
+## 1.3.5
+
+### Patch Changes
+
+-   Add Vite demo showcasing safe-mdx with React, Tailwind CSS v4, and ESM component imports. The demo uses Tailwind CSS v4's new CSS-first configuration approach with the @plugin directive for typography styles. It demonstrates MDX ESM imports with the allowClientEsmImports boolean option, allowing direct imports from URLs like `import IOKnob from 'https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx'`. The demo includes comprehensive MDX features including headings, code blocks, tables, lists, and dynamic component loading. Run with `pnpm demo` to see safe-mdx in action with modern tooling and styling.
+-   Add React resource hints for dynamic ESM component URLs to improve loading performance. The DynamicEsmComponent now uses React's prefetchDNS and preconnect APIs to establish early connections to ESM CDN domains (like esm.sh), reducing latency when components are dynamically imported on the client side. This optimization happens automatically when using allowClientEsmImports and helps improve the user experience by starting the DNS lookup and connection handshake before the actual component import is triggered.
+-   Better handling of md raw html. Smaller bundle on browser
+
+## 1.3.4
+
+### Patch Changes
+
+-   Add Vite demo showcasing safe-mdx with React, Tailwind CSS v4, and ESM component imports. The demo uses Tailwind CSS v4's new CSS-first configuration approach with the @plugin directive for typography styles. It demonstrates MDX ESM imports with the allowClientEsmImports boolean option, allowing direct imports from URLs like `import IOKnob from 'https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx'`. The demo includes comprehensive MDX features including headings, code blocks, tables, lists, and dynamic component loading. Run with `pnpm demo` to see safe-mdx in action with modern tooling and styling.
+-   Add React resource hints for dynamic ESM component URLs to improve loading performance. The DynamicEsmComponent now uses React's prefetchDNS and preconnect APIs to establish early connections to ESM CDN domains (like esm.sh), reducing latency when components are dynamically imported on the client side. This optimization happens automatically when using allowClientEsmImports and helps improve the user experience by starting the DNS lookup and connection handshake before the actual component import is triggered.
+-   Better handling of md raw html. Smaller bundle on browser
+
+## 1.3.3
+
+### Patch Changes
+
+-   Add Vite demo showcasing safe-mdx with React, Tailwind CSS v4, and ESM component imports. The demo uses Tailwind CSS v4's new CSS-first configuration approach with the @plugin directive for typography styles. It demonstrates MDX ESM imports with the allowClientEsmImports boolean option, allowing direct imports from URLs like `import IOKnob from 'https://framer.com/m/IOKnob-DT0M.js@eZsKjfnRtnN8np5uwoAx'`. The demo includes comprehensive MDX features including headings, code blocks, tables, lists, and dynamic component loading. Run with `pnpm demo` to see safe-mdx in action with modern tooling and styling.
+-   Add React resource hints for dynamic ESM component URLs to improve loading performance. The DynamicEsmComponent now uses React's prefetchDNS and preconnect APIs to establish early connections to ESM CDN domains (like esm.sh), reducing latency when components are dynamically imported on the client side. This optimization happens automatically when using allowClientEsmImports and helps improve the user experience by starting the DNS lookup and connection handshake before the actual component import is triggered.
+-   Better handling of md raw html. Smaller bundle on browser
+
 ## 1.3.2
 
 ### Patch Changes
