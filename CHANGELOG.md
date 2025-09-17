@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 1.3.6
+
+### Patch Changes
+
+-  normalize to the correct jsx ast nodes
+
 ## 1.3.5
 
 ### Patch Changes
