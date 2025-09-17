@@ -752,4 +752,52 @@ describe('parseHtmlToMdxAst with markdown processor', () => {
             ])
         })
     })
+
+    test('block-level HTML elements as direct children of root should be flow elements', () => {
+        // Test that wrapper outer HTML elements that are direct children of root 
+        // should be flow elements, not text elements
+        const htmlWithNestedBlocks = htmlToMdxAst({ 
+            html: `<div class="wrapper">
+                <h1>Title</h1>
+                <p>Some content</p>
+                <section>
+                    <h2>Subtitle</h2>
+                </section>
+            </div>
+            <article>
+                <header>Header</header>
+                <main>Content</main>
+            </article>`,
+            parentType: 'root'
+        })
+
+        // All block-level elements at root should be flow elements
+        expect(htmlWithNestedBlocks).toHaveLength(2)
+        
+        // First element: div wrapper
+        expect(htmlWithNestedBlocks[0]).toMatchObject({
+            type: 'mdxJsxFlowElement',
+            name: 'div'
+        })
+        
+        // Second element: article
+        expect(htmlWithNestedBlocks[1]).toMatchObject({
+            type: 'mdxJsxFlowElement',
+            name: 'article'
+        })
+
+        // Test with various block-level tags
+        const blockTags = ['div', 'article', 'section', 'header', 'main', 'footer', 'aside', 'nav']
+        blockTags.forEach(tag => {
+            const result = htmlToMdxAst({ 
+                html: `<${tag}>Content</${tag}>`,
+                parentType: 'root'
+            })
+            expect(result).toHaveLength(1)
+            expect(result[0]).toMatchObject({
+                type: 'mdxJsxFlowElement',
+                name: tag
+            })
+        })
+    })
 })

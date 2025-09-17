@@ -287,7 +287,7 @@ export class MdastToJsx {
                 )
             }
             default: {
-                return this.mdastTransformer(node, 'mdxJsxElement')
+                return this.mdastTransformer(node, 'mdxJsxFlowElement')
             }
         }
     }
@@ -571,7 +571,7 @@ export class MdastToJsx {
         return res
     }
 
-    mdastTransformer(node: MyRootContent, parentType?: string): ReactNode {
+    mdastTransformer(node: MyRootContent, parentType: string): ReactNode {
         if (!node) {
             return []
         }
@@ -944,7 +944,7 @@ export class MdastToJsx {
                 })
 
                 // Process the MDX AST nodes
-                return mdxAst.map(child => this.mdastTransformer(child, parentType))
+                return mdxAst.map(child => this.mdastTransformer(child, 'html'))
             }
             case 'imageReference': {
                 return []
