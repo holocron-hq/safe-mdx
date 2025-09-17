@@ -3414,3 +3414,89 @@ test('override renderNode to wrap bold text in colored span', () => {
     
     expect(html).toMatchInlineSnapshot(`"<p>This is <span style="color:red;font-weight:bold">bold text</span> and this is regular text.</p><p>Another line with <span style="color:red;font-weight:bold">more bold</span> content.</p>"`)
 })
+
+test("skip unknown elements in raw HTML content", () => {
+  const { html } = render(`
+Some text before
+<html><body>
+<p>Valid paragraph</p>
+<unknonw>This content should be preserved</unknonw>
+<div>Valid div</div>
+<faketag>Another preserved content</faketag>
+</body></html>
+Some text after
+`);
+  expect(html).toMatchInlineSnapshot(`"<p>Some text before</p><p>Some text after</p>"`);
+});
+
+test("skip unknown elements in complex nested HTML structures", () => {
+  const { html } = render(`
+# Main Title
+
+<article>
+  <header>
+    <h1>Article Title</h1>
+    <customheader>
+      <p>This paragraph should be preserved</p>
+      <time>2024-01-01</time>
+    </customheader>
+  </header>
+  
+  <section>
+    <blockquote>
+      <p>A famous quote</p>
+      <customcite>
+        <strong>- Author Name</strong>
+        <unknowntag>
+          <em>from a book</em>
+          <span>published in <b>2024</b></span>
+        </unknowntag>
+      </customcite>
+    </blockquote>
+    
+    <fakesection>
+      <h2>Nested Heading</h2>
+      <ul>
+        <li>First item with <invalidtag>nested <code>code</code></invalidtag></li>
+        <li>Second item</li>
+        <customli>Third item should show</customli>
+      </ul>
+    </fakesection>
+  </section>
+  
+  <footer>
+    <customfooter>
+      <nav>
+        <a href="#top">Back to top</a>
+        <fakelink>
+          <span>Contact us</span>
+        </fakelink>
+      </nav>
+    </customfooter>
+  </footer>
+</article>
+
+## Another Section
+
+<div>
+  <customelement>
+    <table>
+      <thead>
+        <tr>
+          <th>Header 1</th>
+          <customth>Header 2 content</customth>
+        </tr>
+      </thead>
+      <tbody>
+        <customrow>
+          <td>Cell 1</td>
+          <td>Cell 2</td>
+        </customrow>
+      </tbody>
+    </table>
+  </customelement>
+</div>
+`);
+  
+  expect(html).toMatchInlineSnapshot(`"<h1>Main Title</h1><article><header><h1>Article Title</h1></header><section><blockquote><p>A famous quote</p></blockquote></section><footer></footer></article><h2>Another Section</h2><div></div>"`);
+});
