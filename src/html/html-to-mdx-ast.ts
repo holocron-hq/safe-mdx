@@ -213,8 +213,8 @@ function htmlNodeToMdxAst(
     }
 
     const convertTagNameFn = options?.convertTagName || defaultConvertTagName
-    // DOM API returns uppercase tagName, but we want lowercase for consistency
-    const componentName = convertTagNameFn({ tagName: node.tagName.toLowerCase() })
+    // Use localName which is always lowercase in both browser and linkedom
+    const componentName = convertTagNameFn({ tagName: node.localName })
 
     // If convertTagName returns empty string, skip this element and only return its children
     if (componentName === '') {
