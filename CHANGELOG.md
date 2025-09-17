@@ -1,5 +1,11 @@
 # safe-mdx
 
+## 1.3.7
+
+### Patch Changes
+
+- Fix HTML indentation being preserved in text nodes. Text content in indented HTML is now properly de-indented before being passed to `textToMdast` or rendered as text nodes. This ensures that HTML formatting indentation doesn't leak into the rendered content.
+
 ## 1.3.6
 
 ### Patch Changes
