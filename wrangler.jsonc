@@ -1,0 +1,6 @@
+{
+  // Wrangler configuration for safe-mdx demo deployment
+  "name": "safe-mdx-demo-with-tailwind-v4-and-esm-imports",
+  "pages_build_output_dir": "dist",
+  "compatibility_date": "2025-01-01"
+}

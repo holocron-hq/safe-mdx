@@ -1,0 +1,17 @@
+Originally taken from https://github.com/leodr/html-to-jsx-transform/tree/main
+
+
+
+Things to remember when deciding between mdxJsxFlowElement or mdxJsxTextElement:
+
+```
+type MdxJsxFlowContent = MdxJsxFlowElement | FlowContent
+
+type MdxJsxPhrasingContent = MdxJsxTextElement | PhrasingContent
+
+type PhrasingContent = Break | Emphasis | Html | Image | ImageReference
+  | InlineCode | Link | LinkReference | Strong | Text
+
+  type FlowContent =
+  Blockquote | Code | Heading | Html | List | ThematicBreak | Content
+```

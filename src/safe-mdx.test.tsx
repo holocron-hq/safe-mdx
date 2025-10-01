@@ -2,33 +2,45 @@ import dedent from 'dedent'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, test } from 'vitest'
-import { mdastBfs, MdastToJsx, mdxParse } from './safe-mdx.js'
-import { remark } from 'remark'
-import remarkMdx from 'remark-mdx'
-void React
+import { z } from 'zod'
+import { mdxParse } from './parse.js'
+import { MdastToJsx, mdastBfs, type ComponentPropsSchema } from './safe-mdx.js'
+import { completeJsxTags } from './streaming.js'
 
 const components = {
-    Heading({ level, children }) {
-        return <h1>{children}</h1>
+    Heading({ level, children, ...props }) {
+        return <h1 {...props}>{children}</h1>
+    },
+    Cards({ level, children, ...props }) {
+        return <div {...props}>{children}</div>
+    },
+    Tabs({ items, children, ...props }) {
+        return <div {...props}>{children}</div>
     },
 }
 
-function render(code) {
-    const visitor = new MdastToJsx({ code, components })
+function render(code, componentPropsSchema?: ComponentPropsSchema, allowClientEsmImports?: boolean, addMarkdownLineNumbers?: boolean) {
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, componentPropsSchema, allowClientEsmImports, addMarkdownLineNumbers })
     const result = visitor.run()
     const html = renderToStaticMarkup(result)
     // console.log(JSON.stringify(result, null, 2))
     return { result, errors: visitor.errors || [], html }
 }
-import { htmlToJsx } from 'html-to-jsx-transform'
 
-test('htmlToJsx', () => {
-    expect(htmlToJsx('<p x="y">')).toMatchInlineSnapshot(`"<p x="y" />"`)
-    expect(htmlToJsx('<p>text</p>')).toMatchInlineSnapshot(`"<p>text</p>"`)
-    expect(htmlToJsx('before <p>text</p>')).toMatchInlineSnapshot(`"<>before <p>text</p></>"`)
-    expect(htmlToJsx('<nonexisting>text</nonexisting>')).toMatchInlineSnapshot(
-        `"<nonexisting>text</nonexisting>"`,
-    )
+
+test('reference links with titles', () => {
+    const code = dedent`
+    > **Heads-up:** Check the [API docs][1] for more info.
+
+    Visit [Slack developers][2] for details.
+
+    [1]: https://api.slack.com/methods/search.messages "search.messages method - Slack API"
+    [2]: https://slack.dev/secure-data-connectivity/ "Secure Data Connectivity - Slack Developers"
+    `
+    
+    const { html } = render(code)
+    expect(html).toMatchInlineSnapshot(`"<blockquote><p><strong>Heads-up:</strong> Check the <a href="https://api.slack.com/methods/search.messages" title="search.messages method - Slack API">API docs</a> for more info.</p></blockquote><p>Visit <a href="https://slack.dev/secure-data-connectivity/" title="Secure Data Connectivity - Slack Developers">Slack developers</a> for details.</p>"`)
 })
 
 test('markdown inside jsx', () => {
@@ -48,7 +60,7 @@ test('markdown inside jsx', () => {
     expect(render(code)).toMatchInlineSnapshot(`
       {
         "errors": [],
-        "html": "<h1>Hello</h1><h1><p>Component <em>children</em></p></h1><figure><p>some <em>bold</em> content</p></figure>",
+        "html": "<h1>Hello</h1><h1 prop="value"><p>Component <em>children</em></p></h1><figure><p>some <em>bold</em> content</p></figure>",
         "result": <React.Fragment>
           <h1>
             Hello
@@ -72,6 +84,38 @@ test('markdown inside jsx', () => {
                content
             </p>
           </figure>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('can complete jsx code with completeJsxTags', () => {
+    const code = dedent`
+    # Hello
+
+    <Cards>
+    <Heading prop="value">
+    some value
+
+    Component *children*
+
+
+
+    `
+
+    expect(render(completeJsxTags(code))).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Hello</h1><div><h1 prop="value"></h1></div>",
+        "result": <React.Fragment>
+          <h1>
+            Hello
+          </h1>
+          <Cards>
+            <Heading
+              prop="value"
+            />
+          </Cards>
         </React.Fragment>,
       }
     `)
@@ -437,6 +481,7 @@ test('missing components are ignored', () => {
       {
         "errors": [
           {
+            "line": 1,
             "message": "Unsupported jsx component MissingComponent",
           },
         ],
@@ -473,32 +518,42 @@ test('props parsing', () => {
       {
         "errors": [
           {
-            "message": "Expressions in jsx props are not supported (expression1={1 + 3})",
+            "line": 8,
+            "message": "Failed to evaluate expression attribute: expression2={Boolean(1)}. Functions are not supported",
           },
           {
-            "message": "Expressions in jsx props are not supported (expression2={Boolean(1)})",
+            "line": 8,
+            "message": "Expressions in jsx prop not evaluated: (expression2={Boolean(1)})",
           },
           {
-            "message": "Expressions in jsx props are not supported (jsx={<SomeComponent />})",
+            "line": 9,
+            "message": "Unsupported jsx component SomeComponent in attribute",
           },
           {
-            "message": "Expressions in jsx props are not supported (...{ spread: true })",
+            "line": 9,
+            "message": "Failed to evaluate expression attribute: jsx={<SomeComponent />}. visitor "JSXElement" is not supported",
+          },
+          {
+            "line": 9,
+            "message": "Expressions in jsx prop not evaluated: (jsx={<SomeComponent />})",
           },
         ],
-        "html": "<h1><p>hi</p></h1>",
+        "html": "<h1 num="2" doublequote="a &quot; string" quote="a &#x27; string" backTick="some undefined value" expression1="4" someJson="[object Object]"><p>hi</p></h1>",
         "result": <React.Fragment>
           <Heading
-            backTick="some \${expr} value"
+            backTick="some undefined value"
             boolean={false}
             doublequote="a " string"
+            expression1={4}
             null={null}
             num={2}
-            quote="a " string"
+            quote="a ' string"
             someJson={
               {
                 "a": 1,
               }
             }
+            spread={true}
           >
             <p>
               hi
@@ -508,6 +563,132 @@ test('props parsing', () => {
       }
     `)
 })
+
+test('jsx attributes with arithmetic expressions', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            level={1 + 2}
+            width={100 * 2}
+            active={!false}
+            comparison={5 > 3}
+            concat={"hello " + "world"}
+        />
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1 width="200" concat="hello world"></h1>",
+        "result": <React.Fragment>
+          <Heading
+            active={true}
+            comparison={true}
+            concat="hello world"
+            level={3}
+            width={200}
+          />
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('jsx attributes with complex objects and arrays', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            simpleArray={[1, 2, 3]}
+            stringArray={["one", "two", "three"]}
+            mixedArray={[1, "two", true, null]}
+            simpleObject={{name: "John", age: 30}}
+            nestedObject={{
+                user: {
+                    name: "Alice",
+                    preferences: {
+                        theme: "dark",
+                        lang: "en"
+                    }
+                },
+                settings: {
+                    notifications: true,
+                    emails: ["alice@example.com", "alice.work@example.com"]
+                }
+            }}
+            arrayOfObjects={[
+                {id: 1, name: "Item 1"},
+                {id: 2, name: "Item 2"}
+            ]}
+        />
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1 simpleArray="1,2,3" stringArray="one,two,three" mixedArray="1,two,true," simpleObject="[object Object]" nestedObject="[object Object]" arrayOfObjects="[object Object],[object Object]"></h1>",
+        "result": <React.Fragment>
+          <Heading
+            arrayOfObjects={
+              [
+                {
+                  "id": 1,
+                  "name": "Item 1",
+                },
+                {
+                  "id": 2,
+                  "name": "Item 2",
+                },
+              ]
+            }
+            mixedArray={
+              [
+                1,
+                "two",
+                true,
+                null,
+              ]
+            }
+            nestedObject={
+              {
+                "settings": {
+                  "emails": [
+                    "alice@example.com",
+                    "alice.work@example.com",
+                  ],
+                  "notifications": true,
+                },
+                "user": {
+                  "name": "Alice",
+                  "preferences": {
+                    "lang": "en",
+                    "theme": "dark",
+                  },
+                },
+              }
+            }
+            simpleArray={
+              [
+                1,
+                2,
+                3,
+              ]
+            }
+            simpleObject={
+              {
+                "age": 30,
+                "name": "John",
+              }
+            }
+            stringArray={
+              [
+                "one",
+                "two",
+                "three",
+              ]
+            }
+          />
+        </React.Fragment>,
+      }
+    `)
+})
+
 test('breaks', () => {
     expect(
         render(dedent`
@@ -949,38 +1130,7 @@ test('kitchen sink', () => {
         `),
     ).toMatchInlineSnapshot(`
       {
-        "errors": [
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-          {
-            "message": "Unsupported language no-highlight",
-          },
-        ],
+        "errors": [],
         "html": "<link rel="preload" as="image" href="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png"/><h1>Markdown Kitchen Sink</h1><p>This file is <a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet" title="">https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet</a> plus a few fixes and additions. Used by <a href="https://github.com/obedm503/bootmark" title="">obedm503/bootmark</a> to <a href="https://obedm503.github.io/bootmark/docs/markdown-cheatsheet.html" title="">demonstrate</a> it&#x27;s styling features.</p><p>This is intended as a quick reference and showcase. For more complete info, see <a href="http://daringfireball.net/projects/markdown/" title="">John Gruber&#x27;s original spec</a> and the <a href="http://github.github.com/github-flavored-markdown/" title="">Github-flavored Markdown info page</a>.</p><p>Note that there is also a <a href="./Markdown-Here-Cheatsheet" title="">Cheatsheet specific to Markdown Here</a> if that&#x27;s what you&#x27;re looking for. You can also check out <a href="./Other-Markdown-Tools" title="">more Markdown tools</a>.</p><h5>Table of Contents</h5><p><a href="#headers" title="">Headers</a>
       <a href="#emphasis" title="">Emphasis</a>
       <a href="#lists" title="">Lists</a>
@@ -992,13 +1142,13 @@ test('kitchen sink', () => {
       <a href="#html" title="">Inline HTML</a>
       <a href="#hr" title="">Horizontal Rule</a>
       <a href="#lines" title="">Line Breaks</a>
-      <a href="#videos" title="">YouTube Videos</a></p><a name="headers"></a><h2>Headers</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><a name="emphasis"></a><h2>Emphasis</h2><pre><code>Emphasis, aka italics, with *asterisks* or _underscores_.
+      <a href="#videos" title="">YouTube Videos</a></p><a name="headers"></a><h2>Headers</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6><p>Alternatively, for H1 and H2, an underline-ish style:</p><h1>Alt-H1</h1><h2>Alt-H2</h2><a name="emphasis"></a><h2>Emphasis</h2><pre><code class="language-no-highlight">Emphasis, aka italics, with *asterisks* or _underscores_.
 
       Strong emphasis, aka bold, with **asterisks** or __underscores__.
 
       Combined emphasis with **asterisks and _underscores_**.
 
-      Strikethrough uses two tildes. ~~Scratch this.~~</code></pre><p>Emphasis, aka italics, with <em>asterisks</em> or <em>underscores</em>.</p><p>Strong emphasis, aka bold, with <strong>asterisks</strong> or <strong>underscores</strong>.</p><p>Combined emphasis with <strong>asterisks and <em>underscores</em></strong>.</p><p>Strikethrough uses two tildes. <del>Scratch this.</del></p><a name="lists"></a><h2>Lists</h2><p>(In this example, leading and trailing spaces are shown with with dots: ⋅)</p><pre><code>1. First ordered list item
+      Strikethrough uses two tildes. ~~Scratch this.~~</code></pre><p>Emphasis, aka italics, with <em>asterisks</em> or <em>underscores</em>.</p><p>Strong emphasis, aka bold, with <strong>asterisks</strong> or <strong>underscores</strong>.</p><p>Combined emphasis with <strong>asterisks and <em>underscores</em></strong>.</p><p>Strikethrough uses two tildes. <del>Scratch this.</del></p><a name="lists"></a><h2>Lists</h2><p>(In this example, leading and trailing spaces are shown with with dots: ⋅)</p><pre><code class="language-no-highlight">1. First ordered list item
       2. Another item
       ⋅⋅* Unordered sub-list.
       1. Actual numbers don&#x27;t matter, just that it&#x27;s a number
@@ -1015,7 +1165,7 @@ test('kitchen sink', () => {
       - Or minuses
       + Or pluses</code></pre><ol start="1"><li><p>First ordered list item</p></li><li><p>Another item</p></li></ol><ul><li><p>Unordered sub-list.</p></li></ul><ol start="1"><li><p>Actual numbers don&#x27;t matter, just that it&#x27;s a number</p></li><li><p>Ordered sub-list</p></li><li><p>And another item.</p><p>You can have properly indented paragraphs within list items. Notice the blank line above, and the leading spaces (at least one, but we&#x27;ll use three here to also align the raw Markdown).</p><p>To have a line break without a paragraph, you will need to use two trailing spaces.
       Note that this line is separate, but within the same paragraph.
-      (This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)</p></li></ol><ul><li><p>Unordered list can use asterisks</p></li></ul><ul><li><p>Or minuses</p></li></ul><ul><li><p>Or pluses</p></li></ul><a name="links"></a><h2>Links</h2><p>There are two ways to create links.</p><pre><code>[I&#x27;m an inline-style link](https://www.google.com)
+      (This is contrary to the typical GFM line break behaviour, where trailing spaces are not required.)</p></li></ol><ul><li><p>Unordered list can use asterisks</p></li></ul><ul><li><p>Or minuses</p></li></ul><ul><li><p>Or pluses</p></li></ul><a name="links"></a><h2>Links</h2><p>There are two ways to create links.</p><pre><code class="language-no-highlight">[I&#x27;m an inline-style link](https://www.google.com)
 
       [I&#x27;m an inline-style link with title](https://www.google.com &quot;Google&#x27;s Homepage&quot;)
 
@@ -1035,9 +1185,9 @@ test('kitchen sink', () => {
 
       [arbitrary case-insensitive reference text]: https://www.mozilla.org
       [1]: http://slashdot.org
-      [link text itself]: http://www.reddit.com</code></pre><p><a href="https://www.google.com" title="">I&#x27;m an inline-style link</a></p><p><a href="https://www.google.com" title="Google&#x27;s Homepage">I&#x27;m an inline-style link with title</a></p><p><a href="https://www.mozilla.org">I&#x27;m a reference-style link</a></p><p><a href="../blob/master/LICENSE" title="">I&#x27;m a relative reference to a repository file</a></p><p><a href="http://slashdot.org">You can use numbers for reference-style link definitions</a></p><p>Or leave it empty and use the <a href="http://www.reddit.com">link text itself</a>.</p><p>URLs and URLs in angle brackets will automatically get turned into links.
+      [link text itself]: http://www.reddit.com</code></pre><p><a href="https://www.google.com" title="">I&#x27;m an inline-style link</a></p><p><a href="https://www.google.com" title="Google&#x27;s Homepage">I&#x27;m an inline-style link with title</a></p><p><a href="https://www.mozilla.org" title="">I&#x27;m a reference-style link</a></p><p><a href="../blob/master/LICENSE" title="">I&#x27;m a relative reference to a repository file</a></p><p><a href="http://slashdot.org" title="">You can use numbers for reference-style link definitions</a></p><p>Or leave it empty and use the <a href="http://www.reddit.com" title="">link text itself</a>.</p><p>URLs and URLs in angle brackets will automatically get turned into links.
       <a href="http://www.example.com" title="">http://www.example.com</a> and sometimes
-      example.com (but not on Github, for example).</p><p>Some text to show that the reference links can follow later.</p><a name="images"></a><h2>Images</h2><pre><code>Here&#x27;s our logo (hover to see the title text):
+      example.com (but not on Github, for example).</p><p>Some text to show that the reference links can follow later.</p><a name="images"></a><h2>Images</h2><pre><code class="language-no-highlight">Here&#x27;s our logo (hover to see the title text):
 
       Inline-style:
       ![alt text](https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png &quot;Logo Title Text 1&quot;)
@@ -1047,13 +1197,13 @@ test('kitchen sink', () => {
 
       [logo]: https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png &quot;Logo Title Text 2&quot;</code></pre><p>Here&#x27;s our logo (hover to see the title text):</p><p>Inline-style:
       <img src="https://github.com/adam-p/markdown-here/raw/master/src/common/images/icon48.png" alt="alt text" title="Logo Title Text 1"/></p><p>Reference-style:
-      </p><a name="code"></a><h2>Code and Syntax Highlighting</h2><p>Code blocks are part of the Markdown spec, but syntax highlighting isn&#x27;t. However, many renderers -- like Github&#x27;s and <em>Markdown Here</em> -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer. <em>Markdown Here</em> supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the <a href="http://softwaremaniacs.org/media/soft/highlight/test.html" title="">highlight.js demo page</a>.</p><pre><code>Inline \`code\` has \`back-ticks around\` it.</code></pre><p>Inline <code>code</code> has <code>back-ticks around</code> it.</p><p>Blocks of code are either fenced by lines with three back-ticks <code>\`\`\`</code>, or are indented with four spaces. I recommend only using the fenced code blocks -- they&#x27;re easier and only they support syntax highlighting.</p><pre><code class="language-javascript">var s = &quot;JavaScript syntax highlighting&quot;;
+      </p><a name="code"></a><h2>Code and Syntax Highlighting</h2><p>Code blocks are part of the Markdown spec, but syntax highlighting isn&#x27;t. However, many renderers -- like Github&#x27;s and <em>Markdown Here</em> -- support syntax highlighting. Which languages are supported and how those language names should be written will vary from renderer to renderer. <em>Markdown Here</em> supports highlighting for dozens of languages (and not-really-languages, like diffs and HTTP headers); to see the complete list, and how to write the language names, see the <a href="http://softwaremaniacs.org/media/soft/highlight/test.html" title="">highlight.js demo page</a>.</p><pre><code class="language-no-highlight">Inline \`code\` has \`back-ticks around\` it.</code></pre><p>Inline <code>code</code> has <code>back-ticks around</code> it.</p><p>Blocks of code are either fenced by lines with three back-ticks <code>\`\`\`</code>, or are indented with four spaces. I recommend only using the fenced code blocks -- they&#x27;re easier and only they support syntax highlighting.</p><pre><code class="language-javascript">var s = &quot;JavaScript syntax highlighting&quot;;
       alert(s);</code></pre><pre><code class="language-python">s = &quot;Python syntax highlighting&quot;
       print s</code></pre><pre><code>No language indicated, so no syntax highlighting.
       But let&#x27;s throw in a &amp;lt;b&amp;gt;tag&amp;lt;/b&amp;gt;.</code></pre><pre><code class="language-javascript">var s = &quot;JavaScript syntax highlighting&quot;;
       alert(s);</code></pre><pre><code class="language-python">s = &quot;Python syntax highlighting&quot;
       print s</code></pre><pre><code>No language indicated, so no syntax highlighting in Markdown Here (varies on Github).
-      But let&#x27;s throw in a &lt;b&gt;tag&lt;/b&gt;.</code></pre><a name="tables"></a><h2>Tables</h2><p>Tables aren&#x27;t part of the core Markdown spec, but they are part of GFM and <em>Markdown Here</em> supports them. They are an easy way of adding tables to your email -- a task that would otherwise require copy-pasting from another application.</p><pre><code>Colons can be used to align columns.
+      But let&#x27;s throw in a &lt;b&gt;tag&lt;/b&gt;.</code></pre><a name="tables"></a><h2>Tables</h2><p>Tables aren&#x27;t part of the core Markdown spec, but they are part of GFM and <em>Markdown Here</em> supports them. They are an easy way of adding tables to your email -- a task that would otherwise require copy-pasting from another application.</p><pre><code class="language-no-highlight">Colons can be used to align columns.
 
       | Tables        | Are           | Cool  |
       | ------------- |:-------------:| -----:|
@@ -1068,13 +1218,13 @@ test('kitchen sink', () => {
       Markdown | Less | Pretty
       --- | --- | ---
       *Still* | \`renders\` | **nicely**
-      1 | 2 | 3</code></pre><p>Colons can be used to align columns.</p><table><thead><tr class=""><td class="">Tables</td><td class="">Are</td><td class="">Cool</td></tr></thead><tbody><tr class=""><td class="">col 3 is</td><td class="">right-aligned</td><td class="">$1600</td></tr><tr class=""><td class="">col 2 is</td><td class="">centered</td><td class="">$12</td></tr><tr class=""><td class="">zebra stripes</td><td class="">are neat</td><td class="">$1</td></tr></tbody></table><p>There must be at least 3 dashes separating each header cell. The outer pipes (|) are optional, and you don&#x27;t need to make the raw Markdown line up prettily. You can also use inline Markdown.</p><table><thead><tr class=""><td class="">Markdown</td><td class="">Less</td><td class="">Pretty</td></tr></thead><tbody><tr class=""><td class=""><em>Still</em></td><td class=""><code>renders</code></td><td class=""><strong>nicely</strong></td></tr><tr class=""><td class="">1</td><td class="">2</td><td class="">3</td></tr></tbody></table><a name="blockquotes"></a><h2>Blockquotes</h2><pre><code>&gt; Blockquotes are very handy in email to emulate reply text.
+      1 | 2 | 3</code></pre><p>Colons can be used to align columns.</p><table><thead><tr class=""><td class="">Tables</td><td class="">Are</td><td class="">Cool</td></tr></thead><tbody><tr class=""><td class="">col 3 is</td><td class="">right-aligned</td><td class="">$1600</td></tr><tr class=""><td class="">col 2 is</td><td class="">centered</td><td class="">$12</td></tr><tr class=""><td class="">zebra stripes</td><td class="">are neat</td><td class="">$1</td></tr></tbody></table><p>There must be at least 3 dashes separating each header cell. The outer pipes (|) are optional, and you don&#x27;t need to make the raw Markdown line up prettily. You can also use inline Markdown.</p><table><thead><tr class=""><td class="">Markdown</td><td class="">Less</td><td class="">Pretty</td></tr></thead><tbody><tr class=""><td class=""><em>Still</em></td><td class=""><code>renders</code></td><td class=""><strong>nicely</strong></td></tr><tr class=""><td class="">1</td><td class="">2</td><td class="">3</td></tr></tbody></table><a name="blockquotes"></a><h2>Blockquotes</h2><pre><code class="language-no-highlight">&gt; Blockquotes are very handy in email to emulate reply text.
       &gt; This line is part of the same quote.
 
       Quote break.
 
       &gt; This is a very long line that will still be quoted properly when it wraps. Oh boy let&#x27;s keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can *put* **Markdown** into a blockquote.</code></pre><blockquote><p>Blockquotes are very handy in email to emulate reply text.
-      This line is part of the same quote.</p></blockquote><p>Quote break.</p><blockquote><p>This is a very long line that will still be quoted properly when it wraps. Oh boy let&#x27;s keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can <em>put</em> <strong>Markdown</strong> into a blockquote.</p></blockquote><a name="html"></a><h2>Inline HTML</h2><p>You can also use raw HTML in your Markdown, and it&#x27;ll mostly work pretty well.</p><pre><code>&lt;dl&gt;
+      This line is part of the same quote.</p></blockquote><p>Quote break.</p><blockquote><p>This is a very long line that will still be quoted properly when it wraps. Oh boy let&#x27;s keep writing to make sure this is long enough to actually wrap for everyone. Oh, you can <em>put</em> <strong>Markdown</strong> into a blockquote.</p></blockquote><a name="html"></a><h2>Inline HTML</h2><p>You can also use raw HTML in your Markdown, and it&#x27;ll mostly work pretty well.</p><pre><code class="language-no-highlight">&lt;dl&gt;
         &lt;dt&gt;Definition list&lt;/dt&gt;
         &lt;dd&gt;Is something people use sometimes.&lt;/dd&gt;
 
@@ -1098,9 +1248,9 @@ test('kitchen sink', () => {
 
       This line is also a separate paragraph, but...
       This line is only separated by a single newline, so it&#x27;s a separate line in the *same paragraph*.</code></pre><p>Here&#x27;s a line for us to start with.</p><p>This line is separated from the one above by two newlines, so it will be a <em>separate paragraph</em>.</p><p>This line is also begins a separate paragraph, but...
-      This line is only separated by a single newline, so it&#x27;s a separate line in the <em>same paragraph</em>.</p><p>(Technical note: <em>Markdown Here</em> uses GFM line breaks, so there&#x27;s no need to use MD&#x27;s two-space line breaks.)</p><a name="videos"></a><h2>YouTube Videos</h2><p>They can&#x27;t be added directly but you can add an image with a link to the video like this:</p><pre><code>&lt;a href=&quot;http://www.youtube.com/watch?feature=player_embedded&amp;v=YOUTUBE_VIDEO_ID_HERE
+      This line is only separated by a single newline, so it&#x27;s a separate line in the <em>same paragraph</em>.</p><p>(Technical note: <em>Markdown Here</em> uses GFM line breaks, so there&#x27;s no need to use MD&#x27;s two-space line breaks.)</p><a name="videos"></a><h2>YouTube Videos</h2><p>They can&#x27;t be added directly but you can add an image with a link to the video like this:</p><pre><code class="language-no-highlight">&lt;a href=&quot;http://www.youtube.com/watch?feature=player_embedded&amp;v=YOUTUBE_VIDEO_ID_HERE
       &quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg&quot;
-      alt=&quot;IMAGE ALT TEXT HERE&quot; width=&quot;240&quot; height=&quot;180&quot; border=&quot;10&quot; /&gt;&lt;/a&gt;</code></pre><p>Or, in pure Markdown, but losing the image sizing and border:</p><pre><code>[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)</code></pre>",
+      alt=&quot;IMAGE ALT TEXT HERE&quot; width=&quot;240&quot; height=&quot;180&quot; border=&quot;10&quot; /&gt;&lt;/a&gt;</code></pre><p>Or, in pure Markdown, but losing the image sizing and border:</p><pre><code class="language-no-highlight">[![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)</code></pre>",
         "result": <React.Fragment>
           <h1>
             Markdown Kitchen Sink
@@ -1329,7 +1479,9 @@ test('kitchen sink', () => {
             Emphasis
           </h2>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               Emphasis, aka italics, with *asterisks* or _underscores_.
 
       Strong emphasis, aka bold, with **asterisks** or __underscores__.
@@ -1387,7 +1539,9 @@ test('kitchen sink', () => {
             (In this example, leading and trailing spaces are shown with with dots: ⋅)
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               1. First ordered list item
       2. Another item
       ⋅⋅* Unordered sub-list.
@@ -1485,7 +1639,9 @@ test('kitchen sink', () => {
             There are two ways to create links.
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               [I'm an inline-style link](https://www.google.com)
 
       [I'm an inline-style link with title](https://www.google.com "Google's Homepage")
@@ -1528,6 +1684,7 @@ test('kitchen sink', () => {
           <p>
             <a
               href="https://www.mozilla.org"
+              title=""
             >
               I'm a reference-style link
             </a>
@@ -1543,6 +1700,7 @@ test('kitchen sink', () => {
           <p>
             <a
               href="http://slashdot.org"
+              title=""
             >
               You can use numbers for reference-style link definitions
             </a>
@@ -1551,6 +1709,7 @@ test('kitchen sink', () => {
             Or leave it empty and use the 
             <a
               href="http://www.reddit.com"
+              title=""
             >
               link text itself
             </a>
@@ -1578,7 +1737,9 @@ test('kitchen sink', () => {
             Images
           </h2>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               Here's our logo (hover to see the title text):
 
       Inline-style:
@@ -1631,7 +1792,9 @@ test('kitchen sink', () => {
             .
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               Inline \`code\` has \`back-ticks around\` it.
             </code>
           </pre>
@@ -1711,7 +1874,9 @@ test('kitchen sink', () => {
              supports them. They are an easy way of adding tables to your email -- a task that would otherwise require copy-pasting from another application.
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               Colons can be used to align columns.
 
       | Tables        | Are           | Cool  |
@@ -1894,7 +2059,9 @@ test('kitchen sink', () => {
             Blockquotes
           </h2>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               &gt; Blockquotes are very handy in email to emulate reply text.
       &gt; This line is part of the same quote.
 
@@ -1935,7 +2102,9 @@ test('kitchen sink', () => {
             You can also use raw HTML in your Markdown, and it'll mostly work pretty well.
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               &lt;dl&gt;
         &lt;dt&gt;Definition list&lt;/dt&gt;
         &lt;dd&gt;Is something people use sometimes.&lt;/dd&gt;
@@ -2066,7 +2235,9 @@ test('kitchen sink', () => {
             They can't be added directly but you can add an image with a link to the video like this:
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               &lt;a href="http://www.youtube.com/watch?feature=player_embedded&v=YOUTUBE_VIDEO_ID_HERE
       " target="_blank"&gt;&lt;img src="http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg"
       alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /&gt;&lt;/a&gt;
@@ -2076,12 +2247,74 @@ test('kitchen sink', () => {
             Or, in pure Markdown, but losing the image sizing and border:
           </p>
           <pre>
-            <code>
+            <code
+              className="language-no-highlight"
+            >
               [![IMAGE ALT TEXT HERE](http://img.youtube.com/vi/YOUTUBE_VIDEO_ID_HERE/0.jpg)](http://www.youtube.com/watch?v=YOUTUBE_VIDEO_ID_HERE)
             </code>
           </pre>
         </React.Fragment>,
       }
+    `)
+})
+
+test('mdx jsx with unknown components are ignored', () => {
+    // Note: In MDX, <custom-element> is treated as MDX JSX, not raw HTML
+    // Unknown JSX components are ignored completely (including their content)
+    const code = dedent`
+    # Heading with JSX
+    
+    This is a paragraph with some JSX components.
+    
+    <div>This is a valid div</div>
+    
+    <CustomElement>This unknown component should be ignored</CustomElement>
+    
+    <span className="highlight">This span is valid</span>
+    
+    <AnotherUnknown>Another unknown component content</AnotherUnknown>
+    
+    More text after JSX.
+    `
+    
+    const { html, result, errors } = render(code)
+    
+    // Check that valid HTML elements are present
+    expect(html).toContain('<div>This is a valid div</div>')
+    expect(html).toContain('<span')
+    expect(html).toContain('This span is valid</span>')
+    
+    // Check that unknown components are completely ignored
+    expect(html).not.toContain('CustomElement')
+    expect(html).not.toContain('AnotherUnknown')
+    expect(html).not.toContain('This unknown component should be ignored')
+    expect(html).not.toContain('Another unknown component content')
+    
+    // Check that errors were generated for unknown components
+    expect(errors).toHaveLength(2)
+    expect(errors[0].message).toContain('Unsupported jsx component CustomElement')
+    expect(errors[1].message).toContain('Unsupported jsx component AnotherUnknown')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          Heading with JSX
+        </h1>
+        <p>
+          This is a paragraph with some JSX components.
+        </p>
+        <div>
+          This is a valid div
+        </div>
+        <span
+          className="highlight"
+        >
+          This span is valid
+        </span>
+        <p>
+          More text after JSX.
+        </p>
+      </React.Fragment>
     `)
 })
 
@@ -2100,12 +2333,8 @@ test('code block rendering', () => {
     `),
     ).toMatchInlineSnapshot(`
       {
-        "errors": [
-          {
-            "message": "Unsupported language invalid-language",
-          },
-        ],
-        "html": "<pre><code class="language-typescript">const x = 1;</code></pre><pre><code>const y = 2;</code></pre>",
+        "errors": [],
+        "html": "<pre><code class="language-typescript">const x = 1;</code></pre><pre><code class="language-invalid-language">const y = 2;</code></pre>",
         "result": <React.Fragment>
           <pre>
             <code
@@ -2115,7 +2344,9 @@ test('code block rendering', () => {
             </code>
           </pre>
           <pre>
-            <code>
+            <code
+              className="language-invalid-language"
+            >
               const y = 2;
             </code>
           </pre>
@@ -2264,3 +2495,1008 @@ _No documentation_
       </React.Fragment>
     `)
 })
+
+test('component props schema validation with zod', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+        title: z.string().optional(),
+    })
+
+    const CardsSchema = z.object({
+        count: z.number().positive(),
+        variant: z.enum(['default', 'outline']).optional(),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+        Cards: CardsSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2} title="test">Valid heading</Heading>
+        
+        <Cards count={3} variant="outline">Valid cards</Cards>
+        
+        <Heading level={10} title="test">Invalid heading - level too high</Heading>
+        
+        <Cards count={-1}>Invalid cards - negative count</Cards>
+        
+        <Cards count="not a number">Invalid cards - wrong type</Cards>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 5,
+            "message": "Invalid props for component "Heading" at "level": Number must be less than or equal to 6",
+            "schemaPath": "level",
+          },
+          {
+            "line": 7,
+            "message": "Invalid props for component "Cards" at "count": Number must be greater than 0",
+            "schemaPath": "count",
+          },
+          {
+            "line": 9,
+            "message": "Invalid props for component "Cards" at "count": Expected number, received string",
+            "schemaPath": "count",
+          },
+        ],
+        "html": "<h1 title="test">Valid heading</h1><div count="3" variant="outline">Valid cards</div><h1 title="test">Invalid heading - level too high</h1><div count="-1">Invalid cards - negative count</div><div count="not a number">Invalid cards - wrong type</div>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            Valid heading
+          </Heading>
+          <Cards
+            count={3}
+            variant="outline"
+          >
+            Valid cards
+          </Cards>
+          <Heading
+            level={10}
+            title="test"
+          >
+            Invalid heading - level too high
+          </Heading>
+          <Cards
+            count={-1}
+          >
+            Invalid cards - negative count
+          </Cards>
+          <Cards
+            count="not a number"
+          >
+            Invalid cards - wrong type
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdx expressions evaluation', () => {
+    expect(
+        render(dedent`
+        # Expression Test
+
+        Simple math: {1 + 2}
+
+        <Heading>
+        Inside JSX: {3 * 4}
+        </Heading>
+
+        Boolean: {true}
+        String concat: {"hello" + " world"}
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Expression Test</h1><p>Simple math: 3</p><h1><p>Inside JSX: 12</p></h1><p>Boolean: 
+      String concat: hello world</p>",
+        "result": <React.Fragment>
+          <h1>
+            Expression Test
+          </h1>
+          <p>
+            Simple math: 
+            3
+          </p>
+          <Heading>
+            <p>
+              Inside JSX: 
+              12
+            </p>
+          </Heading>
+          <p>
+            Boolean: 
+            true
+            
+      String concat: 
+            hello world
+          </p>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdx expressions with unsupported functions', () => {
+    expect(
+        render(dedent`
+        Math function: {Math.max(5, 10)}
+        Console: {console.log("test")}
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 1,
+            "message": "Failed to evaluate expression: Math.max(5, 10). Functions are not supported",
+          },
+          {
+            "line": 2,
+            "message": "Failed to evaluate expression: console.log("test"). Functions are not supported",
+          },
+        ],
+        "html": "<p>Math function: 
+      Console: </p>",
+        "result": <React.Fragment>
+          <p>
+            Math function: 
+            
+      Console: 
+          </p>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('schema validation without errors', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+        title: z.string().optional(),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2} title="test">Valid heading</Heading>
+        <Heading level={1}>Another valid heading</Heading>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1 title="test">Valid heading</h1><h1>Another valid heading</h1>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            Valid heading
+          </Heading>
+          <Heading
+            level={1}
+          >
+            Another valid heading
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('component without schema should not be validated', () => {
+    const HeadingSchema = z.object({
+        level: z.number().min(1).max(6),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: HeadingSchema,
+    }
+
+    const code = dedent`
+        <Heading level={2}>Valid heading with schema</Heading>
+        <Cards invalidProp="anything">Cards without schema - should not be validated</Cards>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1>Valid heading with schema</h1><div invalidProp="anything">Cards without schema - should not be validated</div>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+          >
+            Valid heading with schema
+          </Heading>
+          <Cards
+            invalidProp="anything"
+          >
+            Cards without schema - should not be validated
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('validation error includes schema path', () => {
+    const ComplexSchema = z.object({
+        user: z.object({
+            name: z.string(),
+            age: z.number().min(0),
+        }),
+        settings: z.object({
+            theme: z.enum(['light', 'dark']),
+        }),
+    })
+
+    const componentPropsSchema: ComponentPropsSchema = {
+        Heading: ComplexSchema,
+    }
+
+    const code = dedent`
+        <Heading user={{ name: "test", age: -1 }} settings={{ theme: "invalid" }}>Complex validation</Heading>
+    `
+
+    expect(render(code, componentPropsSchema)).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 1,
+            "message": "Invalid props for component "Heading" at "user.age": Number must be greater than or equal to 0",
+            "schemaPath": "user.age",
+          },
+          {
+            "line": 1,
+            "message": "Invalid props for component "Heading" at "settings.theme": Invalid enum value. Expected 'light' | 'dark', received 'invalid'",
+            "schemaPath": "settings.theme",
+          },
+        ],
+        "html": "<h1 user="[object Object]" settings="[object Object]">Complex validation</h1>",
+        "result": <React.Fragment>
+          <Heading
+            settings={
+              {
+                "theme": "invalid",
+              }
+            }
+            user={
+              {
+                "age": -1,
+                "name": "test",
+              }
+            }
+          >
+            Complex validation
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute spread syntax', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            {...{key: '1', level: 2}}
+            title="test"
+        >
+        Content with spread
+        </Heading>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1 title="test"><p>Content with spread</p></h1>",
+        "result": <React.Fragment>
+          <Heading
+            level={2}
+            title="test"
+          >
+            <p>
+              Content with spread
+            </p>
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute complex spread cases', () => {
+    expect(
+        render(dedent`
+        <Heading 
+            {...{
+                level: 3,
+                active: true,
+                disabled: false,
+                count: 42,
+                title: "spread title",
+                nested: {
+                    prop: "value"
+                }
+            }}
+        >
+        Complex spread test
+        </Heading>
+
+        <Cards 
+            {...{style: {color: "red", fontSize: "16px"}}}
+            {...{className: "test-class", id: "test-id"}}
+        >
+        Multiple spreads
+        </Cards>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [],
+        "html": "<h1 count="42" title="spread title" nested="[object Object]"><p>Complex spread test</p></h1><div style="color:red;font-size:16px" class="test-class" id="test-id"><p>Multiple spreads</p></div>",
+        "result": <React.Fragment>
+          <Heading
+            active={true}
+            count={42}
+            disabled={false}
+            level={3}
+            nested={
+              {
+                "prop": "value",
+              }
+            }
+            title="spread title"
+          >
+            <p>
+              Complex spread test
+            </p>
+          </Heading>
+          <Cards
+            className="test-class"
+            id="test-id"
+            style={
+              {
+                "color": "red",
+                "fontSize": "16px",
+              }
+            }
+          >
+            <p>
+              Multiple spreads
+            </p>
+          </Cards>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('mdxJsxExpressionAttribute edge cases', () => {
+    expect(
+        render(dedent`
+        <Heading {...{}} title="empty spread">Empty spread</Heading>
+        
+        <Heading {...{null: null, undefined: undefined}} title="null/undefined values">Null/undefined</Heading>
+        
+        <Heading {...{array: [1, 2, 3], object: {nested: true}}} title="complex values">Complex types</Heading>
+        `),
+    ).toMatchInlineSnapshot(`
+      {
+        "errors": [
+          {
+            "line": 3,
+            "message": "Failed to evaluate expression attribute: ...{null: null, undefined: undefined}. undefined is undefined",
+          },
+        ],
+        "html": "<h1 title="empty spread">Empty spread</h1><h1 title="null/undefined values">Null/undefined</h1><h1 array="1,2,3" object="[object Object]" title="complex values">Complex types</h1>",
+        "result": <React.Fragment>
+          <Heading
+            title="empty spread"
+          >
+            Empty spread
+          </Heading>
+          <Heading
+            title="null/undefined values"
+          >
+            Null/undefined
+          </Heading>
+          <Heading
+            array={
+              [
+                1,
+                2,
+                3,
+              ]
+            }
+            object={
+              {
+                "nested": true,
+              }
+            }
+            title="complex values"
+          >
+            Complex types
+          </Heading>
+        </React.Fragment>,
+      }
+    `)
+})
+
+test('ESM imports from https URLs', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    import { Card, Modal } from 'https://esm.sh/some-ui-library'
+    
+    # Hello
+    
+    <Button>Click me</Button>
+    
+    <Card title="Test Card">
+        Content inside card
+    </Card>
+    
+    <Modal open={true}>
+        Modal content
+    </Modal>
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, allowClientEsmImports: true })
+    const result = visitor.run()
+    
+    // Check that imports were parsed correctly
+    expect(visitor.esmImports.size).toBe(3)
+    expect(visitor.esmImports.get('Button')).toBe('https://esm.sh/some-button-component')
+    expect(visitor.esmImports.get('Card')).toBe('https://esm.sh/some-ui-library#Card')
+    expect(visitor.esmImports.get('Modal')).toBe('https://esm.sh/some-ui-library#Modal')
+    
+    // Since these are dynamic imports that only work on client, the server render should return null
+    const html = renderToStaticMarkup(result)
+    expect(html).toMatchInlineSnapshot(`"<link href="https://esm.sh" rel="dns-prefetch"/><link rel="preconnect" href="https://esm.sh"/><h1>Hello</h1>"`)
+    
+    expect(visitor.errors).toEqual([])
+})
+
+test('ESM imports error handling', () => {
+    const code = dedent`
+    import Button from 'file:///local/path'
+    import Component from './relative/path'
+    
+    # Test
+    
+    <Button>Local import should not work</Button>
+    <Component>Relative import should not work</Component>
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components, allowClientEsmImports: true })
+    const result = visitor.run()
+    
+    // Only https imports should be processed
+    expect(visitor.esmImports.size).toBe(0)
+    
+    // Should have 4 errors: 2 for invalid imports, 2 for unsupported components
+    expect(visitor.errors.length).toBe(4)
+    
+    // First two errors are for invalid imports
+    expect(visitor.errors[0].message).toContain('Invalid import URL')
+    expect(visitor.errors[1].message).toContain('Invalid import URL')
+    
+    // Last two errors are for unsupported components
+    expect(visitor.errors[2].message).toContain('Unsupported jsx component Button')
+    expect(visitor.errors[3].message).toContain('Unsupported jsx component Component')
+})
+
+test('jsx components in attributes', () => {
+    const code = dedent`
+    # JSX Components in Attributes
+
+    <Heading icon={<span>👋</span>} level={1}>
+    Hello World
+    </Heading>
+
+    <Cards items={<div>Item 1</div>}>
+    Some content
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Should render correctly
+    expect(html).toMatchInlineSnapshot(`"<h1>JSX Components in Attributes</h1><h1 icon="[object Object]"><p>Hello World</p></h1><div items="[object Object]"><p>Some content</p></div>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          JSX Components in Attributes
+        </h1>
+        <Heading
+          icon={
+            <span>
+              👋
+            </span>
+          }
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+        <Cards
+          items={
+            <div>
+              Item 1
+            </div>
+          }
+        >
+          <p>
+            Some content
+          </p>
+        </Cards>
+      </React.Fragment>
+    `)
+})
+
+test('jsx components in attributes with ESM imports', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    import { Icon } from 'https://esm.sh/some-icon-library'
+    
+    # ESM Components in Attributes
+
+    <Heading icon={<Icon name="star" />} level={1}>
+    Hello World
+    </Heading>
+
+    <Cards actionButton={<Button>Click me</Button>}>
+    Some content
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code, undefined, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Should render correctly - ESM components should be wrapped in DynamicEsmComponent
+    expect(html).toMatchInlineSnapshot(`"<h1>ESM Components in Attributes</h1><h1 icon="[object Object]"><p>Hello World</p></h1><div actionButton="[object Object]"><p>Some content</p></div>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          ESM Components in Attributes
+        </h1>
+        <Heading
+          icon={
+            <DynamicEsmComponent
+              componentName="Icon"
+              importUrl="https://esm.sh/some-icon-library"
+              name="star"
+            />
+          }
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+        <Cards
+          actionButton={
+            <DynamicEsmComponent
+              componentName="default"
+              importUrl="https://esm.sh/some-button-component"
+            >
+              Click me
+            </DynamicEsmComponent>
+          }
+        >
+          <p>
+            Some content
+          </p>
+        </Cards>
+      </React.Fragment>
+    `)
+})
+
+test('ESM imports disabled by default', () => {
+    const code = dedent`
+    import Button from 'https://esm.sh/some-button-component'
+    
+    # Test Default Behavior
+
+    <Button>This should not work</Button>
+    `
+    
+    const { result, errors, html } = render(code) // No allowClientEsmImports flag
+    
+    // ESM imports should not be processed when disabled
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ markdown: code, mdast, components }) // Default allowClientEsmImports: false
+    expect(visitor.esmImports.size).toBe(0)
+    
+    // Should have error for unsupported component
+    expect(errors.length).toBeGreaterThan(0)
+    expect(errors.some(e => e.message.includes('Unsupported jsx component Button'))).toBe(true)
+    
+    // Should render heading but not the button
+    expect(html).toMatchInlineSnapshot(`"<h1>Test Default Behavior</h1>"`)
+})
+
+test("jsx components in attributes error handling", () => {
+    const code = dedent`
+    # Error Handling Test
+
+    <Heading icon={<UnsupportedComponent />} level={1}>
+    Hello World
+    </Heading>
+    `
+    
+    const { result, errors, html } = render(code)
+    
+    // Should have an error for the unsupported component
+    expect(errors).toMatchInlineSnapshot(`
+      [
+        {
+          "line": 3,
+          "message": "Unsupported jsx component UnsupportedComponent in attribute",
+        },
+        {
+          "line": 3,
+          "message": "Failed to evaluate expression attribute: icon={<UnsupportedComponent />}. visitor "JSXElement" is not supported",
+        },
+        {
+          "line": 3,
+          "message": "Expressions in jsx prop not evaluated: (icon={<UnsupportedComponent />})",
+        },
+      ]
+    `)
+    
+    // Should still render the rest of the content
+    expect(html).toMatchInlineSnapshot(`"<h1>Error Handling Test</h1><h1><p>Hello World</p></h1>"`)
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1>
+          Error Handling Test
+        </h1>
+        <Heading
+          level={1}
+        >
+          <p>
+            Hello World
+          </p>
+        </Heading>
+      </React.Fragment>
+    `)
+})
+
+test('addMarkdownLineNumbers adds data-markdown-line attributes', () => {
+    const code = dedent`
+    # Hello World
+
+    This is a **paragraph** with *emphasis*.
+
+    <Heading level={2}>
+    Custom component
+    </Heading>
+
+    - List item 1
+    - List item 2
+
+    | Column 1 | Column 2 |
+    |----------|----------|
+    | Cell 1   | Cell 2   |
+    `
+    
+    const { result, errors, html } = render(code, undefined, false, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Check that data-markdown-line attributes are present in HTML
+    expect(html).toContain('data-markdown-line="1"')
+    expect(html).toContain('data-markdown-line="3"')
+    expect(html).toContain('data-markdown-line="9"')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1
+          data-markdown-line={1}
+        >
+          Hello World
+        </h1>
+        <p
+          data-markdown-line={3}
+        >
+          This is a 
+          <strong
+            data-markdown-line={3}
+          >
+            paragraph
+          </strong>
+           with 
+          <em
+            data-markdown-line={3}
+          >
+            emphasis
+          </em>
+          .
+        </p>
+        <Heading
+          data-markdown-line={5}
+          level={2}
+        >
+          <p
+            data-markdown-line={6}
+          >
+            Custom component
+          </p>
+        </Heading>
+        <ul
+          data-markdown-line={9}
+        >
+          <li
+            data-markdown-line={9}
+          >
+            <p
+              data-markdown-line={9}
+            >
+              List item 1
+            </p>
+          </li>
+          <li
+            data-markdown-line={10}
+          >
+            <p
+              data-markdown-line={10}
+            >
+              List item 2
+            </p>
+          </li>
+        </ul>
+        <table
+          data-markdown-line={12}
+        >
+          <thead>
+            <tr
+              className=""
+              data-markdown-line={12}
+            >
+              <td
+                className=""
+                data-markdown-line={12}
+              >
+                Column 1
+              </td>
+              <td
+                className=""
+                data-markdown-line={12}
+              >
+                Column 2
+              </td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              className=""
+              data-markdown-line={14}
+            >
+              <td
+                className=""
+                data-markdown-line={14}
+              >
+                Cell 1
+              </td>
+              <td
+                className=""
+                data-markdown-line={14}
+              >
+                Cell 2
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </React.Fragment>
+    `)
+})
+
+test('addMarkdownLineNumbers works with custom MDX components', () => {
+    const code = dedent`
+    # Regular Heading
+
+    <Heading level={1}>
+    Custom component on line 3
+    </Heading>
+
+    Regular paragraph.
+
+    <Cards count={2}>
+    Another custom component on line 9
+    </Cards>
+    `
+    
+    const { result, errors, html } = render(code, undefined, false, true)
+    
+    // Should not have any errors
+    expect(errors).toMatchInlineSnapshot(`[]`)
+    
+    // Check that custom components have line numbers
+    expect(html).toContain('data-markdown-line="3"')
+    expect(html).toContain('data-markdown-line="9"')
+    
+    expect(result).toMatchInlineSnapshot(`
+      <React.Fragment>
+        <h1
+          data-markdown-line={1}
+        >
+          Regular Heading
+        </h1>
+        <Heading
+          data-markdown-line={3}
+          level={1}
+        >
+          <p
+            data-markdown-line={4}
+          >
+            Custom component on line 3
+          </p>
+        </Heading>
+        <p
+          data-markdown-line={7}
+        >
+          Regular paragraph.
+        </p>
+        <Cards
+          count={2}
+          data-markdown-line={9}
+        >
+          <p
+            data-markdown-line={10}
+          >
+            Another custom component on line 9
+          </p>
+        </Cards>
+      </React.Fragment>
+    `)
+})
+
+test('jsx component with complex array props should show clear error message', () => {
+    const code = dedent`
+    <Tabs items={invalidFunction()} />
+    `
+    
+    const { errors } = render(code)
+    
+    // Should have error with original error message included
+    expect(errors.length).toBeGreaterThan(0)
+    
+    // Find the error that contains the expression evaluation message
+    const expressionError = errors.find(err => 
+        err.message.includes('Failed to evaluate expression attribute: items={invalidFunction()}')
+    )
+    
+    expect(expressionError).toBeDefined()
+    expect(expressionError!.message).toContain('Functions are not supported')
+    expect(expressionError!.line).toBe(1)
+})
+
+test('override renderNode to wrap bold text in colored span', () => {
+    const code = dedent`
+    This is **bold text** and this is regular text.
+    
+    Another line with **more bold** content.
+    `
+    
+    const mdast = mdxParse(code)
+    const visitor = new MdastToJsx({ 
+        markdown: code, 
+        mdast, 
+        components,
+        renderNode: (node, transform) => {
+            if (node.type === 'strong') {
+                return (
+                    <span style={{ color: 'red', fontWeight: 'bold' }}>
+                        {node.children?.map(child => transform(child))}
+                    </span>
+                )
+            }
+            // Return undefined to use default rendering
+            return undefined
+        }
+    })
+    
+    const result = visitor.run()
+    const html = renderToStaticMarkup(result)
+    
+    expect(html).toMatchInlineSnapshot(`"<p>This is <span style="color:red;font-weight:bold">bold text</span> and this is regular text.</p><p>Another line with <span style="color:red;font-weight:bold">more bold</span> content.</p>"`)
+})
+
+test("skip unknown elements in raw HTML content", () => {
+  const { html } = render(`
+Some text before
+<html><body>
+<p>Valid paragraph</p>
+<unknonw>This content should be preserved</unknonw>
+<div>Valid div</div>
+<faketag>Another preserved content</faketag>
+</body></html>
+Some text after
+`);
+  expect(html).toMatchInlineSnapshot(`"<p>Some text before</p><p>Some text after</p>"`);
+});
+
+test("skip unknown elements in complex nested HTML structures", () => {
+  const { html } = render(`
+# Main Title
+
+<article>
+  <header>
+    <h1>Article Title</h1>
+    <customheader>
+      <p>This paragraph should be preserved</p>
+      <time>2024-01-01</time>
+    </customheader>
+  </header>
+  
+  <section>
+    <blockquote>
+      <p>A famous quote</p>
+      <customcite>
+        <strong>- Author Name</strong>
+        <unknowntag>
+          <em>from a book</em>
+          <span>published in <b>2024</b></span>
+        </unknowntag>
+      </customcite>
+    </blockquote>
+    
+    <fakesection>
+      <h2>Nested Heading</h2>
+      <ul>
+        <li>First item with <invalidtag>nested <code>code</code></invalidtag></li>
+        <li>Second item</li>
+        <customli>Third item should show</customli>
+      </ul>
+    </fakesection>
+  </section>
+  
+  <footer>
+    <customfooter>
+      <nav>
+        <a href="#top">Back to top</a>
+        <fakelink>
+          <span>Contact us</span>
+        </fakelink>
+      </nav>
+    </customfooter>
+  </footer>
+</article>
+
+## Another Section
+
+<div>
+  <customelement>
+    <table>
+      <thead>
+        <tr>
+          <th>Header 1</th>
+          <customth>Header 2 content</customth>
+        </tr>
+      </thead>
+      <tbody>
+        <customrow>
+          <td>Cell 1</td>
+          <td>Cell 2</td>
+        </customrow>
+      </tbody>
+    </table>
+  </customelement>
+</div>
+`);
+  
+  expect(html).toMatchInlineSnapshot(`"<h1>Main Title</h1><article><header><h1>Article Title</h1></header><section><blockquote><p>A famous quote</p></blockquote></section><footer></footer></article><h2>Another Section</h2><div></div>"`);
+});

@@ -1,85 +1,128 @@
 import React, { cloneElement } from 'react'
-import { htmlToJsx } from 'html-to-jsx-transform'
-import { Node, Parent, RootContent } from 'mdast'
-import remarkFrontmatter from 'remark-frontmatter'
 
-import { collapseWhiteSpace } from 'collapse-white-space'
-import { visit } from 'unist-util-visit'
-
-import { Root, Yaml } from 'mdast'
-import { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
-import { remark } from 'remark'
-import remarkGfm from 'remark-gfm'
-import remarkMdx from 'remark-mdx'
+import type { StandardSchemaV1 } from '@standard-schema/spec'
+import type { JSXElement } from 'estree-jsx'
+import Evaluate from 'eval-estree-expression'
+import type { Node, Parent, Root, RootContent } from 'mdast'
+import type { MdxJsxFlowElement, MdxJsxTextElement } from 'mdast-util-mdx-jsx'
 
 import { Fragment, ReactNode } from 'react'
+import { DynamicEsmComponent } from './dynamic-esm-component.js'
+import { extractComponentInfo, parseEsmImports } from './esm-parser.js'
+import { htmlToMdxAst } from './html/html-to-mdx-ast.js'
+import { validHtmlElements, nativeTags } from './html/valid-html-elements.js'
 
-type MyRootContent = RootContent | Root
-
-export function mdxParse(code: string) {
-    const file = mdxProcessor.processSync(code)
-    return file.data.ast as Root
-}
+export type MyRootContent = RootContent | Root
 
 declare module 'mdast' {
+    export interface HProperties {
+        id?: string
+    }
     export interface Data {
-        hProperties?: {
-            id?: string
-        }
+        hProperties?: HProperties
     }
 }
 
-export type CustomTransformer = (
+export type RenderNode = (
     node: MyRootContent,
     transform: (node: MyRootContent) => ReactNode,
 ) => ReactNode | undefined
 
-export function SafeMdxRenderer({
+export interface SafeMdxError {
+    message: string
+    line?: number
+    schemaPath?: string
+}
+
+export type ComponentPropsSchema = Record<string, StandardSchemaV1>
+
+export type CreateElementFunction = (
+    type: any,
+    props?: any,
+    ...children: ReactNode[]
+) => ReactNode
+
+export const SafeMdxRenderer = React.memo(function SafeMdxRenderer({
     components,
-    code = '',
+    markdown = '',
     mdast = null as any,
-    customTransformer,
+    renderNode,
+    componentPropsSchema,
+    createElement,
+    allowClientEsmImports = false,
+    addMarkdownLineNumbers = false,
 }: {
     components?: ComponentsMap
-    code?: string
-    mdast?: MyRootContent
-    customTransformer?: CustomTransformer
+    markdown?: string
+    mdast: MyRootContent
+    renderNode?: RenderNode
+    componentPropsSchema?: ComponentPropsSchema
+    createElement?: CreateElementFunction
+    allowClientEsmImports?: boolean
+    addMarkdownLineNumbers?: boolean
 }) {
     const visitor = new MdastToJsx({
-        code,
+        markdown,
         mdast,
         components,
-        customTransformer,
+        renderNode,
+        componentPropsSchema,
+        createElement,
+        allowClientEsmImports,
+        addMarkdownLineNumbers,
     })
     const result = visitor.run()
     return result
-}
+})
 
 export class MdastToJsx {
     mdast: MyRootContent
     str: string
     jsxStr: string = ''
     c: ComponentsMap
-    errors: { message: string }[] = []
-    customTransformer?: CustomTransformer
+    errors: SafeMdxError[] = []
+    renderNode?: RenderNode
+    componentPropsSchema?: ComponentPropsSchema
+    createElement: CreateElementFunction
+    esmImports: Map<string, string> = new Map()
+    allowClientEsmImports: boolean
+    addMarkdownLineNumbers: boolean
 
     constructor({
-        code = '',
-        mdast = undefined as any,
+        markdown: code = '',
+        mdast,
         components = {} as ComponentsMap,
-        customTransformer,
+        renderNode,
+        componentPropsSchema,
+        createElement = React.createElement,
+        allowClientEsmImports = false,
+        addMarkdownLineNumbers = false,
     }: {
-        code?: string
-        mdast?: MyRootContent
+        markdown?: string
+        mdast: MyRootContent
         components?: ComponentsMap
-        customTransformer?: (
+        renderNode?: (
             node: MyRootContent,
             transform: (node: MyRootContent) => ReactNode,
         ) => ReactNode | undefined
+        componentPropsSchema?: ComponentPropsSchema
+        createElement?: CreateElementFunction
+        allowClientEsmImports?: boolean
+        addMarkdownLineNumbers?: boolean
     }) {
         this.str = code
-        this.mdast = mdast || mdxParse(code)
-        this.customTransformer = customTransformer
+
+        this.mdast = mdast
+
+        this.renderNode = renderNode
+
+        this.componentPropsSchema = componentPropsSchema
+
+        this.createElement = createElement
+
+        this.allowClientEsmImports = allowClientEsmImports
+
+        this.addMarkdownLineNumbers = addMarkdownLineNumbers
 
         this.c = {
             ...Object.fromEntries(
@@ -90,9 +133,60 @@ export class MdastToJsx {
             ...components,
         }
     }
+
+    addLineNumberToProps(
+        props: Record<string, any> | undefined,
+        node: MyRootContent,
+    ): Record<string, any> {
+        if (!this.addMarkdownLineNumbers) {
+            return props || {}
+        }
+
+        const lineNumber = node.position?.start?.line
+        if (lineNumber) {
+            return {
+                ...props,
+                'data-markdown-line': lineNumber,
+            }
+        }
+        return props || {}
+    }
+
+    validateComponentProps(
+        componentName: string,
+        props: Record<string, any>,
+        line?: number,
+    ): void {
+        if (
+            !this.componentPropsSchema ||
+            !this.componentPropsSchema[componentName]
+        ) {
+            return
+        }
+
+        const schema = this.componentPropsSchema[componentName]
+        let result = schema['~standard'].validate(props)
+
+        if (result instanceof Promise) {
+            // Ignore async validation errors as requested
+            return
+        } else {
+            if (result.issues) {
+                result.issues.forEach((issue) => {
+                    const propPath = issue.path?.join('.') || 'unknown'
+                    this.errors.push({
+                        message: `Invalid props for component "${componentName}" at "${propPath}": ${issue.message}`,
+                        line,
+                        schemaPath: issue.path?.join('.'),
+                    })
+                })
+            }
+        }
+    }
+
     mapMdastChildren(node: any) {
         const res = node.children
-            ?.flatMap((child) => this.mdastTransformer(child))
+            ?.flatMap((child) => this.mdastTransformer(child, node.type))
             .filter(Boolean)
         if (Array.isArray(res)) {
             if (!res.length) {
@@ -136,50 +230,357 @@ export class MdastToJsx {
                     return []
                 }
 
-                const Component = accessWithDot(this.c, node.name)
+                // Check if this is an ESM imported component (only if allowed)
+                const esmImportInfo = this.allowClientEsmImports
+                    ? this.esmImports.get(node.name)
+                    : null
+                let Component
 
-                if (!Component) {
-                    this.errors.push({
-                        message: `Unsupported jsx component ${node.name}`,
+                if (esmImportInfo) {
+                    // Handle ESM imported component
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
+
+                    Component = DynamicEsmComponent
+                    let attrsList = this.getJsxAttrs(node, (err) => {
+                        this.errors.push(err)
                     })
-                    return null
+                    let attrs = Object.fromEntries(attrsList)
+
+                    return this.createElement(
+                        Component,
+                        this.addLineNumberToProps(
+                            { ...attrs, importUrl, componentName },
+                            node,
+                        ),
+                        this.mapJsxChildren(node),
+                    )
+                } else {
+                    Component = accessWithDot(this.c, node.name)
+
+                    if (!Component) {
+                        this.errors.push({
+                            message: `Unsupported jsx component ${node.name}`,
+                            line: node.position?.start?.line,
+                        })
+                        return null
+                    }
                 }
 
-                let attrsList = getJsxAttrs(node, (err) => {
+                let attrsList = this.getJsxAttrs(node, (err) => {
                     this.errors.push(err)
                 })
 
                 let attrs = Object.fromEntries(attrsList)
-                return (
-                    <Component {...attrs}>
-                        {this.mapJsxChildren(node)}
-                    </Component>
+
+                // Validate component props with schema if available
+                this.validateComponentProps(
+                    node.name,
+                    attrs,
+                    node.position?.start?.line,
+                )
+
+                return this.createElement(
+                    Component,
+                    this.addLineNumberToProps(attrs, node),
+                    this.mapJsxChildren(node),
                 )
             }
             default: {
-                return this.mdastTransformer(node)
+                return this.mdastTransformer(node, 'mdxJsxFlowElement')
             }
         }
     }
 
+    transformJsxElement(
+        jsxElement: JSXElement,
+        onError?: (err: SafeMdxError) => void,
+        line?: number,
+    ): ReactNode {
+        try {
+            // Handle JSX opening element
+            if (jsxElement.openingElement) {
+                const tagName =
+                    jsxElement.openingElement.name?.type === 'JSXIdentifier'
+                        ? jsxElement.openingElement.name.name
+                        : null
+                if (!tagName) {
+                    onError?.({
+                        message: 'JSX element missing component name',
+                        line: line,
+                    })
+                    return null
+                }
+
+                // Check if this is an ESM imported component (only if allowed)
+                const esmImportInfo = this.allowClientEsmImports
+                    ? this.esmImports.get(tagName)
+                    : null
+                let Component
+
+                if (esmImportInfo) {
+                    // Handle ESM imported component
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
+                    Component = DynamicEsmComponent
+                } else {
+                    // Get the component from the regular component map
+                    Component = accessWithDot(this.c, tagName)
+                    if (!Component) {
+                        onError?.({
+                            message: `Unsupported jsx component ${tagName} in attribute`,
+                            line: line,
+                        })
+                        return null
+                    }
+                }
+
+                // Extract attributes
+                const props: Record<string, any> = {}
+                if (jsxElement.openingElement.attributes) {
+                    for (const attr of jsxElement.openingElement.attributes) {
+                        if (
+                            attr.type === 'JSXAttribute' &&
+                            attr.name?.type === 'JSXIdentifier' &&
+                            attr.name.name
+                        ) {
+                            if (attr.value) {
+                                if (attr.value.type === 'Literal') {
+                                    props[attr.name.name] = attr.value.value
+                                } else if (
+                                    attr.value.type === 'JSXExpressionContainer'
+                                ) {
+                                    if (
+                                        attr.value.expression.type === 'Literal'
+                                    ) {
+                                        props[attr.name.name] =
+                                            attr.value.expression.value
+                                    }
+                                }
+                            } else {
+                                props[attr.name.name] = true
+                            }
+                        }
+                    }
+                }
+
+                // Extract children
+                const children: ReactNode[] = []
+                if (jsxElement.children) {
+                    for (const child of jsxElement.children) {
+                        if (child.type === 'JSXText') {
+                            children.push(child.value)
+                        } else if (child.type === 'JSXElement') {
+                            const childElement = this.transformJsxElement(child)
+                            if (childElement) {
+                                children.push(childElement)
+                            }
+                        }
+                    }
+                }
+
+                // Handle ESM imported components by adding required props
+                if (esmImportInfo) {
+                    const { importUrl, componentName } =
+                        extractComponentInfo(esmImportInfo)
+                    return this.createElement(
+                        Component,
+                        { ...props, importUrl, componentName },
+                        ...children,
+                    )
+                } else {
+                    return this.createElement(Component, props, ...children)
+                }
+            }
+        } catch (error) {
+            // Return null if transformation fails
+            onError?.({
+                message: `Failed to transform JSX element: ${
+                    error instanceof Error ? error.message : 'Unknown error'
+                }`,
+                line: line,
+            })
+            return null
+        }
+        return null
+    }
+
+    getJsxAttrs(
+        node: MdxJsxFlowElement | MdxJsxTextElement,
+        onError: (err: SafeMdxError) => void = console.error,
+    ) {
+        let attrsList: [string, any][] = []
+
+        for (const attr of node.attributes) {
+            if (attr.type === 'mdxJsxExpressionAttribute') {
+                // Handle spread expressions like {...{key: '1'}}
+                if (attr.data?.estree) {
+                    try {
+                        const program = attr.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            try {
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
+
+                                // Handle spread syntax - merge the evaluated object
+                                if (
+                                    typeof result === 'object' &&
+                                    result != null
+                                ) {
+                                    const entries = Object.entries(result)
+                                    attrsList.push(...entries)
+                                }
+                            } catch (error) {
+                                onError({
+                                    message: `Failed to evaluate expression attribute: ${attr.value
+                                        .replace(/\n+/g, ' ')
+                                        .replace(/ +/g, ' ')}. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
+                                    line: attr.position?.start?.line,
+                                })
+                            }
+                        }
+                    } catch (error) {
+                        onError({
+                            message: `Failed to evaluate expression attribute: ${attr.value
+                                .replace(/\n+/g, ' ')
+                                .replace(/ +/g, ' ')}. ${
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error)
+                            }`,
+                            line: attr.position?.start?.line,
+                        })
+                    }
+                } else {
+                    onError({
+                        message: `Expressions in jsx props are not supported (${attr.value
+                            .replace(/\n+/g, ' ')
+                            .replace(/ +/g, ' ')})`,
+                        line: attr.position?.start?.line,
+                    })
+                }
+                continue
+            }
+
+            if (attr.type !== 'mdxJsxAttribute') {
+                onError({
+                    message: `non mdxJsxAttribute attribute is not supported: ${attr}`,
+                    line: node.position?.start?.line,
+                })
+                continue
+            }
+
+            const v = attr.value
+            if (typeof v === 'string' || typeof v === 'number') {
+                attrsList.push([attr.name, v])
+                continue
+            }
+            if (v === null) {
+                attrsList.push([attr.name, true])
+                continue
+            }
+            if (v?.type === 'mdxJsxAttributeValueExpression') {
+                // Manual parsing fallback for simple values
+                if (v.value === 'true') {
+                    attrsList.push([attr.name, true])
+                    continue
+                }
+                if (v.value === 'false') {
+                    attrsList.push([attr.name, false])
+                    continue
+                }
+                if (v.value === 'null') {
+                    attrsList.push([attr.name, null])
+                    continue
+                }
+                if (v.value === 'undefined') {
+                    attrsList.push([attr.name, undefined])
+                    continue
+                }
+
+                if (v.data?.estree) {
+                    try {
+                        // Extract the expression from the Program body
+                        const program = v.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+
+                            // Check if this is a JSX element
+                            if (expression.type === 'JSXElement') {
+                                // Transform JSX element to React element
+                                const jsxElement = this.transformJsxElement(
+                                    expression,
+                                    onError,
+                                    attr.position?.start?.line,
+                                )
+                                if (jsxElement) {
+                                    attrsList.push([attr.name, jsxElement])
+                                    continue
+                                }
+                            }
+
+                            try {
+                                // Evaluate the expression synchronously
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
+                                attrsList.push([attr.name, result])
+                                continue
+                            } catch (error) {
+                                onError({
+                                    message: `Failed to evaluate expression attribute: ${
+                                        attr.name
+                                    }={${v.value}}. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
+                                    line: attr.position?.start?.line,
+                                })
+                            }
+                        }
+                    } catch (error) {
+                        // Fall back to the original manual parsing for backwards compatibility
+                    }
+                }
+
+                onError({
+                    message: `Expressions in jsx prop not evaluated: (${attr.name}={${v.value}})`,
+                    line: attr.position?.start?.line,
+                })
+            }
+        }
+        return attrsList
+    }
+
     run() {
-        const res = this.mdastTransformer(this.mdast) as ReactNode
+        const res = this.mdastTransformer(this.mdast, 'root') as ReactNode
         if (Array.isArray(res) && res.length === 1) {
             return res[0]
         }
         return res
     }
 
-    mdastTransformer(node: MyRootContent): ReactNode {
+    mdastTransformer(node: MyRootContent, parentType: string): ReactNode {
         if (!node) {
             return []
         }
 
         // Check for custom transformer first, giving it higher priority
-        if (this.customTransformer) {
-            const customResult = this.customTransformer(
+        if (this.renderNode) {
+            const customResult = this.renderNode(
                 node,
-                this.mdastTransformer.bind(this),
+                (n: MyRootContent) => this.mdastTransformer(n, node.type),
             )
             if (customResult !== undefined) {
                 return customResult
@@ -188,10 +589,15 @@ export class MdastToJsx {
 
         switch (node.type) {
             case 'mdxjsEsm': {
-                const start = node.position?.start?.offset
-                const end = node.position?.end?.offset
-                let text = this.str.slice(start, end)
-
+                // Parse ESM imports and merge into our imports map (only if allowed)
+                if (this.allowClientEsmImports) {
+                    const parsedImports = parseEsmImports(node, (err) =>
+                        this.errors.push(err),
+                    )
+                    parsedImports.forEach((value, key) => {
+                        this.esmImports.set(key, value)
+                    })
+                }
                 return []
             }
             case 'mdxJsxTextElement':
@@ -218,6 +624,49 @@ export class MdastToJsx {
                 if (!node.value) {
                     return []
                 }
+
+                // Check if we have an estree AST
+                if (node.data?.estree) {
+                    try {
+                        // Extract the expression from the Program body
+                        const program = node.data.estree
+                        if (
+                            program.body?.length > 0 &&
+                            program.body[0].type === 'ExpressionStatement'
+                        ) {
+                            const expression = program.body[0].expression
+                            try {
+                                // Evaluate the expression synchronously
+                                const result =
+                                    Evaluate.evaluate.sync(expression)
+                                return result
+                            } catch (error) {
+                                this.errors.push({
+                                    message: `Failed to evaluate expression: ${
+                                        node.value
+                                    }. ${
+                                        error instanceof Error
+                                            ? error.message
+                                            : String(error)
+                                    }`,
+                                    line: node.position?.start?.line,
+                                })
+                            }
+                        }
+                    } catch (error) {
+                        this.errors.push({
+                            message: `Failed to evaluate expression: ${
+                                node.value
+                            }. ${
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error)
+                            }`,
+                            line: node.position?.start?.line,
+                        })
+                    }
+                }
+
                 return []
             }
             case 'yaml': {
@@ -230,28 +679,31 @@ export class MdastToJsx {
                 const level = node.depth
                 const Tag = this.c[`h${level}`] ?? `h${level}`
 
-                return (
-                    <Tag {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </Tag>
+                return this.createElement(
+                    Tag,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'paragraph': {
-                return (
-                    <this.c.p {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.p>
+                return this.createElement(
+                    this.c.p,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'blockquote': {
-                return (
-                    <this.c.blockquote {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.blockquote>
+                return this.createElement(
+                    this.c.blockquote,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'thematicBreak': {
-                return <this.c.hr />
+                return this.createElement(
+                    this.c.hr,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                )
             }
             case 'code': {
                 if (!node.value) {
@@ -259,67 +711,67 @@ export class MdastToJsx {
                 }
                 const language = node.lang || ''
                 const code = node.value
-                const codeBlock = (className?: string) => (
-                    <this.c.pre {...node.data?.hProperties}>
-                        <this.c.code className={className}>{code}</this.c.code>
-                    </this.c.pre>
-                )
+                const codeBlock = (className?: string) =>
+                    this.createElement(
+                        this.c.pre,
+                        this.addLineNumberToProps(node.data?.hProperties, node),
+                        this.createElement(this.c.code, { className }, code),
+                    )
 
                 if (language) {
-                    if (
-                        supportedLanguagesSet.has(
-                            language as (typeof supportedLanguages)[number],
-                        )
-                    ) {
-                        return codeBlock(`language-${language}`)
-                    } else {
-                        this.errors.push({
-                            message: `Unsupported language ${language}`,
-                        })
-                        return codeBlock()
-                    }
+                    return codeBlock(`language-${language}`)
                 }
                 return codeBlock()
             }
 
             case 'list': {
                 if (node.ordered) {
-                    return (
-                        <this.c.ol
-                            start={node.start!}
-                            {...node.data?.hProperties}
-                        >
-                            {this.mapMdastChildren(node)}
-                        </this.c.ol>
+                    return this.createElement(
+                        this.c.ol,
+                        this.addLineNumberToProps(
+                            { start: node.start!, ...node.data?.hProperties },
+                            node,
+                        ),
+                        this.mapMdastChildren(node),
                     )
                 }
-                return (
-                    <this.c.ul {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.ul>
+                return this.createElement(
+                    this.c.ul,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'listItem': {
                 // https://github.com/syntax-tree/mdast-util-gfm-task-list-item#syntax-tree
                 if (node?.checked != null) {
-                    return (
-                        <this.c.li
-                            data-checked={node.checked}
-                            {...node.data?.hProperties}
-                        >
-                            {this.mapMdastChildren(node)}
-                        </this.c.li>
+                    return this.createElement(
+                        this.c.li,
+                        this.addLineNumberToProps(
+                            {
+                                'data-checked': node.checked,
+                                ...node.data?.hProperties,
+                            },
+                            node,
+                        ),
+                        this.mapMdastChildren(node),
                     )
                 }
-                return (
-                    <this.c.li {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.li>
+                return this.createElement(
+                    this.c.li,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'text': {
                 if (!node.value) {
                     return []
+                }
+                if (node.data?.hProperties) {
+                    return this.createElement(
+                        this.c.span,
+                        this.addLineNumberToProps(node.data.hProperties, node),
+                        node.value,
+                    )
                 }
                 return node.value
             }
@@ -327,85 +779,113 @@ export class MdastToJsx {
                 const src = node.url || ''
                 const alt = node.alt || ''
                 const title = node.title || ''
-                return (
-                    <this.c.img
-                        src={src}
-                        alt={alt}
-                        title={title}
-                        {...node.data?.hProperties}
-                    />
+                return this.createElement(
+                    this.c.img,
+                    this.addLineNumberToProps(
+                        {
+                            src,
+                            alt,
+                            title,
+                            ...node.data?.hProperties,
+                        },
+                        node,
+                    ),
                 )
             }
             case 'link': {
                 const href = node.url || ''
                 const title = node.title || ''
-                return (
-                    <this.c.a {...{ href, title }} {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.a>
+                return this.createElement(
+                    this.c.a,
+                    this.addLineNumberToProps(
+                        { href, title, ...node.data?.hProperties },
+                        node,
+                    ),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'strong': {
-                return (
-                    <this.c.strong {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.strong>
+                return this.createElement(
+                    this.c.strong,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'emphasis': {
-                return (
-                    <this.c.em {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.em>
+                return this.createElement(
+                    this.c.em,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'delete': {
-                return (
-                    <this.c.del {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.del>
+                return this.createElement(
+                    this.c.del,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'inlineCode': {
                 if (!node.value) {
                     return []
                 }
-                return (
-                    <this.c.code {...node.data?.hProperties}>
-                        {node.value}
-                    </this.c.code>
+                return this.createElement(
+                    this.c.code,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    node.value,
                 )
             }
             case 'break': {
-                return <this.c.br />
+                return this.createElement(
+                    this.c.br,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                )
             }
             case 'root': {
-                return <Fragment>{this.mapMdastChildren(node)}</Fragment>
+                if (node.data?.hProperties) {
+                    return this.createElement(
+                        this.c.div,
+                        this.addLineNumberToProps(node.data.hProperties, node),
+                        this.mapMdastChildren(node),
+                    )
+                }
+                return this.createElement(
+                    Fragment,
+                    null,
+                    this.mapMdastChildren(node),
+                )
             }
             case 'table': {
                 const [head, ...body] = React.Children.toArray(
                     this.mapMdastChildren(node),
                 )
-                return (
-                    <this.c.table {...node.data?.hProperties}>
-                        {head && <this.c.thead>{head}</this.c.thead>}
-                        {!!body?.length && <this.c.tbody>{body}</this.c.tbody>}
-                    </this.c.table>
+                return this.createElement(
+                    this.c.table,
+                    this.addLineNumberToProps(node.data?.hProperties, node),
+                    head && this.createElement(this.c.thead, null, head),
+                    !!body?.length &&
+                        this.createElement(this.c.tbody, null, body),
                 )
             }
             case 'tableRow': {
-                return (
-                    <this.c.tr className='' {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.tr>
+                return this.createElement(
+                    this.c.tr,
+                    this.addLineNumberToProps(
+                        { className: '', ...node.data?.hProperties },
+                        node,
+                    ),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'tableCell': {
                 let content = this.mapMdastChildren(node)
-                return (
-                    <this.c.td className='' {...node.data?.hProperties}>
-                        {content}
-                    </this.c.td>
+                return this.createElement(
+                    this.c.td,
+                    this.addLineNumberToProps(
+                        { className: '', ...node.data?.hProperties },
+                        node,
+                    ),
+                    content,
                 )
             }
             case 'definition': {
@@ -413,19 +893,24 @@ export class MdastToJsx {
             }
             case 'linkReference': {
                 let href = ''
+                let title = ''
                 mdastBfs(this.mdast, (child: any) => {
                     if (
                         child.type === 'definition' &&
                         child.identifier === node.identifier
                     ) {
-                        href = child.url
+                        href = child.url || ''
+                        title = child.title || ''
                     }
                 })
 
-                return (
-                    <this.c.a href={href} {...node.data?.hProperties}>
-                        {this.mapMdastChildren(node)}
-                    </this.c.a>
+                return this.createElement(
+                    this.c.a,
+                    this.addLineNumberToProps(
+                        { href, title, ...node.data?.hProperties },
+                        node,
+                    ),
+                    this.mapMdastChildren(node),
                 )
             }
             case 'footnoteReference': {
@@ -443,20 +928,23 @@ export class MdastToJsx {
                     return []
                 }
 
-                const jsx = htmlToJsx(text)
-                try {
-                    this.jsxStr = jsx
-                    const result = this.jsxTransformer(node)
-                    if (Array.isArray(result)) {
-                        console.log(`Unexpected array result`)
-                    } else if (result) {
-                        return result
+                // Parse HTML to MDX AST using the new approach - always returns an array
+                const mdxAst = htmlToMdxAst({
+                    html: text,
+                    parentType: parentType || 'root',
+                    convertTagName: ({ tagName }) => {
+                        const lowerTag = tagName.toLowerCase()
+                        // Only keep valid HTML elements
+                        if (validHtmlElements.has(lowerTag)) {
+                            return lowerTag
+                        }
+                        // Return empty string for non-HTML elements
+                        return ''
                     }
-                } finally {
-                    this.jsxStr = ''
-                }
+                })
 
-                return []
+                // Process the MDX AST nodes
+                return mdxAst.map(child => this.mdastTransformer(child, 'html'))
             }
             case 'imageReference': {
                 return []
@@ -475,77 +963,6 @@ export class MdastToJsx {
             }
         }
     }
-}
-
-export function getJsxAttrs(
-    node: MdxJsxFlowElement | MdxJsxTextElement,
-    onError: (err: { message: string }) => void = console.error,
-) {
-    let attrsList = node.attributes
-        .map((attr) => {
-            if (attr.type === 'mdxJsxExpressionAttribute') {
-                onError({
-                    message: `Expressions in jsx props are not supported (${attr.value
-                        .replace(/\n+/g, ' ')
-                        .replace(/ +/g, ' ')})`,
-                })
-                return
-            }
-            if (attr.type !== 'mdxJsxAttribute') {
-                throw new Error(`non mdxJsxAttribute is not supported: ${attr}`)
-            }
-
-            const v = attr.value
-            if (typeof v === 'string' || typeof v === 'number') {
-                return [attr.name, v]
-            }
-            if (v === null) {
-                return [attr.name, true]
-            }
-            if (v?.type === 'mdxJsxAttributeValueExpression') {
-                if (v.value === 'true') {
-                    return [attr.name, true]
-                }
-                if (v.value === 'false') {
-                    return [attr.name, false]
-                }
-                if (v.value === 'null') {
-                    return [attr.name, null]
-                }
-                if (v.value === 'undefined') {
-                    return [attr.name, undefined]
-                }
-                let quote = ['"', "'", '`'].find(
-                    (q) => v.value.startsWith(q) && v.value.endsWith(q),
-                )
-                if (quote) {
-                    let value = v.value
-                    if (quote !== '"') {
-                        value = v.value.replace(new RegExp(quote, 'g'), '"')
-                    }
-                    return [attr.name, JSON.parse(value)]
-                }
-
-                const number = Number(v.value)
-                if (!isNaN(number)) {
-                    return [attr.name, number]
-                }
-                const parsedJson = safeJsonParse(v.value)
-                if (parsedJson) {
-                    return [attr.name, parsedJson]
-                }
-
-                onError({
-                    message: `Expressions in jsx props are not supported (${attr.name}={${v.value}})`,
-                })
-            } else {
-                console.log('unhandled attr', { attr }, attr.type)
-            }
-
-            return
-        })
-        .filter(isTruthy) as [string, any][]
-    return attrsList
 }
 
 function isTruthy<T>(val: T | undefined | null | false): val is T {
@@ -589,442 +1006,6 @@ function safeJsonParse(str: string) {
     }
 }
 
-const nativeTags = [
-    'blockquote',
-    'strong',
-    'em',
-    'del',
-    'hr',
-    'a',
-    'b',
-    'br',
-    'button',
-    'div',
-    'form',
-    'h1',
-    'h2',
-    'h3',
-    'h4',
-    'head',
-    'iframe',
-    'img',
-    'input',
-    'label',
-    'li',
-    'link',
-    'ol',
-    'p',
-    'path',
-    'picture',
-    'script',
-    'section',
-    'source',
-    'span',
-    'sub',
-    'sup',
-    'svg',
-    'table',
-    'tbody',
-    'td',
-    'tfoot',
-    'th',
-    'thead',
-    'tr',
-    'ul',
-    'video',
-    'code',
-    'pre',
-    'figure',
-    'canvas',
-    'details',
-    'dl',
-    'dt',
-    'dd',
-    'fieldset',
-    'footer',
-    'header',
-    'legend',
-    'main',
-    'mark',
-    'nav',
-    'progress',
-    'summary',
-    'time',
-] as const
-
-const supportedLanguages = [
-    'abap',
-    'abnf',
-    'actionscript',
-    'ada',
-    'agda',
-    'al',
-    'antlr4',
-    'apacheconf',
-    'apex',
-    'apl',
-    'applescript',
-    'aql',
-    'arduino',
-    'arff',
-    'asciidoc',
-    'asm6502',
-    'asmatmel',
-    'aspnet',
-    'autohotkey',
-    'autoit',
-    'avisynth',
-    'avro-idl',
-    'bash',
-    'basic',
-    'batch',
-    'bbcode',
-    'bicep',
-    'birb',
-    'bison',
-    'bnf',
-    'brainfuck',
-    'brightscript',
-    'bro',
-    'bsl',
-    'c',
-    'cfscript',
-    'chaiscript',
-    'cil',
-    'clike',
-    'clojure',
-    'cmake',
-    'cobol',
-    'coffeescript',
-    'concurnas',
-    'coq',
-    'cpp',
-    'crystal',
-    'csharp',
-    'cshtml',
-    'csp',
-    'css-extras',
-    'css',
-    'csv',
-    'cypher',
-    'd',
-    'dart',
-    'dataweave',
-    'dax',
-    'dhall',
-    'diff',
-    'django',
-    'dns-zone-file',
-    'docker',
-    'dot',
-    'ebnf',
-    'editorconfig',
-    'eiffel',
-    'ejs',
-    'elixir',
-    'elm',
-    'erb',
-    'erlang',
-    'etlua',
-    'excel-formula',
-    'factor',
-    'false',
-    'firestore-security-rules',
-    'flow',
-    'fortran',
-    'fsharp',
-    'ftl',
-    'gap',
-    'gcode',
-    'gdscript',
-    'gedcom',
-    'gherkin',
-    'git',
-    'glsl',
-    'gml',
-    'gn',
-    'go-module',
-    'go',
-    'graphql',
-    'groovy',
-    'haml',
-    'handlebars',
-    'haskell',
-    'haxe',
-    'hcl',
-    'hlsl',
-    'hoon',
-    'hpkp',
-    'hsts',
-    'http',
-    'ichigojam',
-    'icon',
-    'icu-message-format',
-    'idris',
-    'iecst',
-    'ignore',
-    'inform7',
-    'ini',
-    'io',
-    'j',
-    'java',
-    'javadoc',
-    'javadoclike',
-    'javascript',
-    'javastacktrace',
-    'jexl',
-    'jolie',
-    'jq',
-    'js-extras',
-    'js-templates',
-    'jsdoc',
-    'json',
-    'json5',
-    'jsonp',
-    'jsstacktrace',
-    'jsx',
-    'julia',
-    'keepalived',
-    'keyman',
-    'kotlin',
-    'kumir',
-    'kusto',
-    'latex',
-    'latte',
-    'less',
-    'lilypond',
-    'liquid',
-    'lisp',
-    'livescript',
-    'llvm',
-    'log',
-    'lolcode',
-    'lua',
-    'magma',
-    'makefile',
-    'markdown',
-    'markup-templating',
-    'markup',
-    'matlab',
-    'maxscript',
-    'mel',
-    'mermaid',
-    'mizar',
-    'mongodb',
-    'monkey',
-    'moonscript',
-    'n1ql',
-    'n4js',
-    'nand2tetris-hdl',
-    'naniscript',
-    'nasm',
-    'neon',
-    'nevod',
-    'nginx',
-    'nim',
-    'nix',
-    'nsis',
-    'objectivec',
-    'ocaml',
-    'opencl',
-    'openqasm',
-    'oz',
-    'parigp',
-    'parser',
-    'pascal',
-    'pascaligo',
-    'pcaxis',
-    'peoplecode',
-    'perl',
-    'php-extras',
-    'php',
-    'phpdoc',
-    'plsql',
-    'powerquery',
-    'powershell',
-    'processing',
-    'prolog',
-    'promql',
-    'properties',
-    'protobuf',
-    'psl',
-    'pug',
-    'puppet',
-    'pure',
-    'purebasic',
-    'purescript',
-    'python',
-    'q',
-    'qml',
-    'qore',
-    'qsharp',
-    'r',
-    'racket',
-    'reason',
-    'regex',
-    'rego',
-    'renpy',
-    'rest',
-    'rip',
-    'roboconf',
-    'robotframework',
-    'ruby',
-    'rust',
-    'sas',
-    'sass',
-    'scala',
-    'scheme',
-    'scss',
-    'shell-session',
-    'smali',
-    'smalltalk',
-    'smarty',
-    'sml',
-    'solidity',
-    'solution-file',
-    'soy',
-    'sparql',
-    'splunk-spl',
-    'sqf',
-    'sql',
-    'squirrel',
-    'stan',
-    'stylus',
-    'swift',
-    'systemd',
-    't4-cs',
-    't4-templating',
-    't4-vb',
-    'tap',
-    'tcl',
-    'textile',
-    'toml',
-    'tremor',
-    'tsx',
-    'tt2',
-    'turtle',
-    'twig',
-    'typescript',
-    'typoscript',
-    'unrealscript',
-    'uorazor',
-    'uri',
-    'v',
-    'vala',
-    'vbnet',
-    'velocity',
-    'verilog',
-    'vhdl',
-    'vim',
-    'visual-basic',
-    'warpscript',
-    'wasm',
-    'web-idl',
-    'wiki',
-    'wolfram',
-    'wren',
-    'xeora',
-    'xml-doc',
-    'xojo',
-    'xquery',
-    'yaml',
-    'yang',
-    'zig',
-] as const
-const supportedLanguagesSet = new Set(supportedLanguages)
-
 type ComponentsMap = { [k in (typeof nativeTags)[number]]?: any } & {
     [key: string]: any
 }
-
-/**
- * https://github.com/mdx-js/mdx/blob/b3351fadcb6f78833a72757b7135dcfb8ab646fe/packages/mdx/lib/plugin/remark-mark-and-unravel.js
- * A tiny plugin that unravels `<p><h1>x</h1></p>` but also
- * `<p><Component /></p>` (so it has no knowledge of "HTML").
- *
- * It also marks JSX as being explicitly JSX, so when a user passes a `h1`
- * component, it is used for `# heading` but not for `<h1>heading</h1>`.
- *
- */
-export function remarkMarkAndUnravel() {
-    return function (tree: Root) {
-        visit(tree, function (node, index, parent) {
-            let offset = -1
-            let all = true
-            let oneOrMore = false
-
-            if (
-                parent &&
-                typeof index === 'number' &&
-                node.type === 'paragraph'
-            ) {
-                const children = node.children
-
-                while (++offset < children.length) {
-                    const child = children[offset]
-
-                    if (
-                        child.type === 'mdxJsxTextElement' ||
-                        child.type === 'mdxTextExpression'
-                    ) {
-                        oneOrMore = true
-                    } else if (
-                        child.type === 'text' &&
-                        collapseWhiteSpace(child.value, {
-                            style: 'html',
-                            trim: true,
-                        }) === ''
-                    ) {
-                        // Empty.
-                    } else {
-                        all = false
-                        break
-                    }
-                }
-
-                if (all && oneOrMore) {
-                    offset = -1
-
-                    const newChildren: RootContent[] = []
-
-                    while (++offset < children.length) {
-                        const child = children[offset]
-
-                        if (child.type === 'mdxJsxTextElement') {
-                            // @ts-expect-error: mutate because it is faster; content model is fine.
-                            child.type = 'mdxJsxFlowElement'
-                        }
-
-                        if (child.type === 'mdxTextExpression') {
-                            // @ts-expect-error: mutate because it is faster; content model is fine.
-                            child.type = 'mdxFlowExpression'
-                        }
-
-                        if (
-                            child.type === 'text' &&
-                            /^[\t\r\n ]+$/.test(String(child.value))
-                        ) {
-                            // Empty.
-                        } else {
-                            newChildren.push(child)
-                        }
-                    }
-
-                    parent.children.splice(index, 1, ...newChildren)
-                    return index
-                }
-            }
-        })
-    }
-}
-
-const mdxProcessor = remark()
-    .use(remarkMdx)
-    .use(remarkFrontmatter, ['yaml', 'toml'])
-    .use(remarkGfm)
-    .use(remarkMarkAndUnravel)
-    .use(() => {
-        return (tree, file) => {
-            file.data.ast = tree
-        }
-    })
